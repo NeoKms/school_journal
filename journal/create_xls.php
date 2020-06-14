@@ -290,7 +290,7 @@ function setMonth($id){
     }
 }
 function getStudents($studClass){
-    $res = database::getInstance()->query("select * from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$studClass}");
+    $res = database::getInstance()->query("select users.id,users.name from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$studClass}");
     $students=[];
     foreach ($res as $user){
         $students[$user['id']]="{$user['name']}";
