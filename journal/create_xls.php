@@ -1,20 +1,16 @@
 <?php
-// подключение служебной части пролога
-include_once($_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php");
-include_once($_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/iblock/include.php");
-
-global $USER;
-if(!$USER->IsAuthorized()) die('Not Autorizate!');
-if(!\CModule::IncludeModule("iblock")) die('Not install module iblock!');
+define('ROOT', '../');
+session_start();
+require (ROOT.'database/database.php');
+$db = database::getInstance();
 if (empty($_REQUEST['type'])) die('не выбран период'); else $type=$_REQUEST['type'];
 if (empty($_REQUEST['classId'])) die('не выбран класс'); else $studClass=$_REQUEST['classId'];
 
 /** PHPExcel,  PHPExcel_IOFactory */
-require_once($_SERVER["DOCUMENT_ROOT"].'/classes/PHPExcel.php');
-require_once($_SERVER["DOCUMENT_ROOT"].'/classes/PHPExcel/IOFactory.php');
-$objPHPExcel = new \PHPExcel();
-$objPHPExcel->getDefaultStyle()->getFont()->setName('Arial');
-
+@require_once(ROOT.'classes/PHPExcel.php');
+@require_once(ROOT.'classes/PHPExcel/IOFactory.php');
+@$objPHPExcel = new \PHPExcel();
+@$objPHPExcel->getDefaultStyle()->getFont()->setName('Arial');
 // ID колонок для Excel'я
 $arCol = array();
 for ($i = 1; $i < 27; $i++) $arCol[$i] = chr($i + 64);
@@ -64,67 +60,48 @@ $section=getCurrentSection($studClass);
 $quarters=getPeriod($type);
 $periodDates=$quarters[1];
 $quarters=$quarters[0];
-$elem=new CIBlockElement();
-$filter=[
-    'IBLOCK_ID'=>12,
-    'SECTION_ID'=>$section,
-    ["LOGIC"=>'AND',
-        ['>=PROPERTY_EVENT_LENGTH'=>strtotime($quarters['now']['s'])],
-        ['<=PROPERTY_EVENT_LENGTH'=>strtotime($quarters['now']['f'])],
-    ]
-];
-if (!in_array(1,$USER->GetUserGroupArray())){//не админ
-    $filter['PROPERTY_TEACHER']=$USER->GetID();
+$q='select journal.id, journal.date_int, journal.name,journal.teacher,journal.subject,journal.date,journal.theme,journal.comment, subjects.name as subj_name
+		from journal inner join subjects on journal.subject = subjects.id 
+		where journal.group_id='.$section.' 
+		and journal.date_int>='.strtotime($quarters['now']['s']).' 
+		and journal.date_int<='.strtotime($quarters['now']['f']);
+if (!in_array(1,$_SESSION['user']['groups'])){//не админ
+   $q.=' and teacher='.$_SESSION['user']['id'];
 }
-
-$req=$elem::GetList(
-    ['PROPERTY_EVENT_LENGTH'=>'ASC'],
-    $filter,
-    false,false,
-    [
-        'ID',
-        "NAME",
-        'IBLOCK_SECTION_ID',
-        'PROPERTY_TEACHER',
-        'PROPERTY_SUBJECT',
-        'PROPERTY_DATE_CLASS',
-        'PROPERTY_MARKS',
-        'EVENT_LENGTH',
-        'PROPERTY_SUBJECT.NAME',
-        'PROPERTY_LESSON_THEME',
-        'PROPERTY_COMMENT_CLASS',
-    ]);
+$q.=' order by date_int asc';
+$res = $db->query($q);
 $classesMarks=[];
 $subjectIDS=[];
 $studentsArray=getStudents($studClass);
 $journalIDS=[];
 //собираем сначала все дни
-while($obj=$req->Fetch()){
-    $date=$obj['PROPERTY_DATE_CLASS_VALUE'];
-    $classID=$obj['PROPERTY_SUBJECT_VALUE'];
-    $journalID=$obj['ID'];
+foreach ($res as $obj){
+    $date=$obj['date'];
+    $classID=$obj['subject'];
+    $journalID=$obj['id'];
     $journalIDS[]=$journalID;
     $subjectIDS[]=$classID;
     if (!isset($classesMarks[$classID])) $classesMarks[$classID]=[
-        'NAME'=>$obj['PROPERTY_SUBJECT_NAME'],
+        'NAME'=>$obj['subj_name'],
         'DATA'=>[],
     ];
     foreach ($studentsArray as $stid=>$oneStudent){
         if (!isset($classesMarks[$classID]['DATA'][$stid])) $classesMarks[$classID]['DATA'][$stid]=['NAME'=>$oneStudent,'DATA'=>[]];
-        $classesMarks[$classID]['DATA'][$stid]['DATA'][$journalID]=['theme'=>$obj['PROPERTY_LESSON_THEME_VALUE'],
-            'comment'=>$obj['PROPERTY_COMMENT_CLASS_VALUE'],'DATA'=>[]];
+        $classesMarks[$classID]['DATA'][$stid]['DATA'][$journalID]=['theme'=>$obj['theme'],
+            'comment'=>$obj['comment'],'DATA'=>[]];
     }
 }
 //теперь все оценки
-$req=$elem::GetList(['PROPERTY_MARK'=>"ASC"],
-    ['IBLOCK_ID'=>21,'PROPERTY_SUBJECT'=>$subjectIDS,'PROPERTY_CLASS'=>$journalIDS,'PROPERTY_STUDENT'=>array_keys($studentsArray)],
-    false,false,
-    ['PROPERTY_CLASS','PROPERTY_STUDENT','PROPERTY_TYPE','PROPERTY_MARK','ID','PROPERTY_SUBJECT','PROPERTY_TYPE.PROPERTY_SHORT']);
-while($obj=$req->Fetch()){
-    $studID=$obj['PROPERTY_STUDENT_VALUE'];
-    $journalID=$obj['PROPERTY_CLASS_VALUE'];
-    $subjectID=$obj['PROPERTY_SUBJECT_VALUE'];
-    $classesMarks[$subjectID]['DATA'][$studID]['DATA'][$journalID]['DATA'][]=[$obj['PROPERTY_MARK_VALUE'],$obj['PROPERTY_TYPE_PROPERTY_SHORT_VALUE']];
+$q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
+    ' from marks inner join type_marks on marks.type_id = type_marks.id '.
+    "where subject_id in ('".implode("','",$subjectIDS)."') and journal_id in ('".implode("','",$journalIDS)."')".
+    "and student_id in(".implode(',',array_keys($studentsArray)).") order by marks.mark asc";
+$res = $db->query($q);
+foreach ($res as $obj){
+    $studID=$obj['student_id'];
+    $journalID=$obj['journal_id'];
+    $subjectID=$obj['subject_id'];
+    $classesMarks[$subjectID]['DATA'][$studID]['DATA'][$journalID]['DATA'][]=[$obj['mark'],$obj['short']];
 }
 //echo "<pre>";
 //print_r($classesMarks);
@@ -262,38 +239,24 @@ function getQuartersDays($q){
     return [$days,$month];
 }
 function getQuarters(){
-    $req=\CIBlockElement::GetList(
-        ['PROPERTY_YEAR'=>'ASC'],
-        ['IBLOCK_ID'=>19,'PROPERTY_NOW'=>'Y'],
-        false,false,
-        [
-            'ID',
-            "NAME",
-            'PROPERTY_START1',
-            'PROPERTY_START2',
-            'PROPERTY_START3',
-            'PROPERTY_START4',
-            'PROPERTY_FINISH1',
-            'PROPERTY_FINISH2',
-            'PROPERTY_FINISH3',
-            'PROPERTY_FINISH4',
-        ])->Fetch();
+    $req=database::getInstance()->query("select * from quarters where now='Y' order by year asc")[0];
+    $format='d.m.Y';
     return [
         [
-            's'=>$req['PROPERTY_START1_VALUE'],
-            'f'=>$req['PROPERTY_FINISH1_VALUE']
+            's'=>date($format,strtotime($req['start1'])),
+            'f'=>date($format,strtotime($req['finish1']))
         ],
         [
-            's'=>$req['PROPERTY_START2_VALUE'],
-            'f'=>$req['PROPERTY_FINISH2_VALUE']
+            's'=>date($format,strtotime($req['start2'])),
+            'f'=>date($format,strtotime($req['finish2']))
         ],
         [
-            's'=>$req['PROPERTY_START3_VALUE'],
-            'f'=>$req['PROPERTY_FINISH3_VALUE']
+            's'=>date($format,strtotime($req['start3'])),
+            'f'=>date($format,strtotime($req['finish3']))
         ],
         [
-            's'=>$req['PROPERTY_START4_VALUE'],
-            'f'=>$req['PROPERTY_FINISH4_VALUE']
+            's'=>date($format,strtotime($req['start4'])),
+            'f'=>date($format,strtotime($req['finish4']))
         ],
     ];
 }
@@ -327,25 +290,16 @@ function setMonth($id){
     }
 }
 function getStudents($studClass){
-    $studentsIds=CGroup::GetGroupUser(9);
-    $by='name';$ord='asc';
-    $users = CUser::GetList($by, $ord, ['ID' => implode(' | ', $studentsIds),
-        'ACTIVE' => 'Y', 'UF_EDU_STRUCTURE' => $studClass], []);
+    $res = database::getInstance()->query("select * from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$studClass}");
     $students=[];
-    while ($user=$users->fetch()){
-        $students[$user['ID']]="{$user['LAST_NAME']} ".strtoupper(substr(trim($user['NAME']),0,2)).".";
-        //            echo "{$user['LAST_NAME']} ".strtoupper(substr($user['NAME'],1,1)).".</br>";
+    foreach ($res as $user){
+        $students[$user['id']]="{$user['name']}";
+//                    echo "{$user['name']}</br>";
     }
     return $students;
 }
 function getCurrentSection($studClass){
-    $group=\CIBlockElement::GetById($studClass)->Fetch();
-    $groupsSections=getIBlockSections(11);
-    $group['section_name']=$groupsSections[$group['IBLOCK_SECTION_ID']];
-    $journal=getIBlockSections(12);
-    $section=array_search($group['section_name'],$journal);
-    if ($section<0) die('ошибка раздела журнала');
-    return $section;
+    return database::getInstance()->query("select group_id from subjects where id={$studClass}")[0]['group_id'];
 }
 function getIBlockSections($id)
 {

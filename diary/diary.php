@@ -1,62 +1,48 @@
 <?php
-include($_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php");
-use DateTime;
-
-if(!CModule::IncludeModule("iblock")) die('ошибка битрикс');
+define('ROOT', '../');
+require (ROOT.'database/database.php');
+session_start();
 if (empty($_REQUEST['id'])) die('неверный ид ученика');
 else {
     $studentID=$_REQUEST['id'];
 }
-if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE'];
-if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR'];
-if (isset($_REQUEST['allQuar'])) $allQuar=true;
+if (isset($_REQUEST['PAGE'])) $pageNum=(int)$_REQUEST['PAGE'];
+if (isset($_REQUEST['QUAR'])) $quarterNum=(int)$_REQUEST['QUAR'];
+if (isset($_REQUEST['allQuar'])) {
+	$allQuar=true;
+}
+else {
+	$allQuar=false;
+}
 $section=getCurrentSection($studentID);
 $quarters=getQuarters($quarterNum);
 $currentWeek=getWeek($quarters,$pageNum);
 if ($allQuar) {
     $currentWeek = [$quarters['now']['s'], $quarters['now']['f']];
 }
-$elem=new CIBlockElement();
-$filterWeek=[
-    'IBLOCK_ID'=>12,
-    'SECTION_ID'=>$section,
-    ["LOGIC"=>'AND',
-        ['>=PROPERTY_EVENT_LENGTH'=>strtotime($currentWeek[0])],
-        ['<=PROPERTY_EVENT_LENGTH'=>strtotime($currentWeek[1])],
-    ]
-];
-$req=$elem::GetList(
-    ['PROPERTY_EVENT_LENGTH'=>'ASC'],
-    $filterWeek,
-    false,false,
-    [
-        'ID',
-        "NAME",
-        'IBLOCK_SECTION_ID',
-        'PROPERTY_TEACHER',
-        'PROPERTY_SUBJECT',
-        'PROPERTY_DATE_CLASS',
-        'PROPERTY_MARKS',
-        'EVENT_LENGTH',
-        'PROPERTY_SUBJECT.NAME',
-        'PROPERTY_LESSON_THEME',
-        'PROPERTY_COMMENT_CLASS',
-    ]);
+$db = database::getInstance();
+$q='select journal.id, journal.date_int, journal.name,journal.teacher,journal.subject,journal.date,journal.theme,journal.comment, subjects.name as subj_name
+		from journal inner join subjects on journal.subject = subjects.id 
+		where journal.group_id='.$section.' 
+		and journal.date_int>='.strtotime($currentWeek[0]).' 
+		and journal.date_int<='.strtotime($currentWeek[1]).'
+		order by date_int asc';
+$res = $db->query($q);
 $classesHeads=[];
 $classesMarks=[];
 $subjectIDS=[];
 $journalIDS=[];
 $dayWeek=new DateTime();
-while($obj=$req->Fetch()){
-    $date=$obj['PROPERTY_DATE_CLASS_VALUE'];
-    $classID=$obj['PROPERTY_SUBJECT_VALUE'];
-    $journalId=$obj['ID'];
+foreach ($res as $obj){
+    $date=$obj['date'];
+    $classID=$obj['subject'];
+    $journalId=$obj['id'];
     $journalIDS[]=$journalId;
-    $comment=$obj['PROPERTY_COMMENT_CLASS_VALUE'];
-    $theme=$obj['PROPERTY_LESSON_THEME_VALUE'];
-    $subjectIDS[]=$obj['PROPERTY_SUBJECT_VALUE'];
-    if (!isset($classesHeads[$date])) $classesHeads[$date] = switchWeek($dayWeek->setTimestamp($obj['PROPERTY_EVENT_LENGTH_VALUE'])->format('N'));
-    if (!isset($classesMarks[$classID]))$classesMarks[$classID]=['NAME'=>$obj["PROPERTY_SUBJECT_NAME"],'DATES'=>[]];
+    $comment=$obj['comment'];
+    $theme=$obj['theme'];
+    $subjectIDS[]=$obj['subject'];
+    if (!isset($classesHeads[$date])) $classesHeads[$date] = switchWeek($dayWeek->setTimestamp($obj['date_int'])->format('N'));
+    if (!isset($classesMarks[$classID]))$classesMarks[$classID]=['NAME'=>$obj["subj_name"],'DATES'=>[]];
     if (!isset($classesMarks[$classID]['DATES'][$journalId])) {
     	$data_content='';
     	if (!empty($theme)) $data_content.="Тема: {$theme} \n";
@@ -68,23 +54,26 @@ while($obj=$req->Fetch()){
         ];
     }
 }
+
 $subjectIDS=array_unique($subjectIDS);
 $journalIDS=array_unique($journalIDS);
 $existMarksIds=[];
-$req=$elem::GetList(['PROPERTY_MARK'=>"ASC"],
-    ['IBLOCK_ID'=>21,'PROPERTY_SUBJECT'=>$subjectIDS,'PROPERTY_CLASS'=>$journalIDS,'PROPERTY_STUDENT'=>$studentID],
-    false,false,
-    ['PROPERTY_CLASS','PROPERTY_STUDENT','PROPERTY_TYPE','PROPERTY_MARK','ID','PROPERTY_SUBJECT','PROPERTY_TYPE.PROPERTY_SHORT']);
-while($obj=$req->Fetch()){
-    $studID=$obj['PROPERTY_STUDENT_VALUE'];
-    $journalID=$obj['PROPERTY_CLASS_VALUE'];
-    $subjectID=$obj['PROPERTY_SUBJECT_VALUE'];
+$q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
+    ' from marks inner join type_marks on marks.type_id = type_marks.id '.
+    "where subject_id in ('".implode("','",$subjectIDS)."') and journal_id in ('".implode("','",$journalIDS)."')".
+    "and student_id =".$studentID." order by marks.mark asc";
+$res = $db->query($q);
+
+foreach ($res as $obj){
+    $studID=$obj['student_id'];
+    $journalID=$obj['journal_id'];
+    $subjectID=$obj['subject_id'];
     if (isset($classesMarks[$subjectID]['DATES'][$journalID])){
-    	if (!empty($obj['PROPERTY_MARK_VALUE'])) {
+    	if (!empty($obj['mark'])) {
             $existMarksIds[] = $subjectID;
             $classesMarks[$subjectID]['DATES'][$journalID]['marks'][] = [
-                $obj['PROPERTY_MARK_VALUE'],
-                $obj['PROPERTY_TYPE_PROPERTY_SHORT_VALUE']
+                $obj['mark'],
+                $obj['short']
             ];
         }
 	}
@@ -97,92 +86,18 @@ foreach ($delSubjects as $oneId){
 //print_r($classesMarks);
 //echo "</pre>";
 //exit;
-
-$filterAll=[
-    'IBLOCK_ID'=>12,
-    'SECTION_ID'=>$section,
-    'PROPERTY_SUBJECT'=>$classID,
-    ["LOGIC"=>'AND',
-        ['>=PROPERTY_EVENT_LENGTH'=>strtotime($quarters['now']['s'])],
-        ['<=PROPERTY_EVENT_LENGTH'=>strtotime($quarters['now']['f'])],
-    ]
-];
-$countClassesInQuarter=\CIBlockElement::GetList([],$filterAll,[]);
+$countClassesInQuarter=$db->query("select count(*) from journal 
+									where group_id={$section} 
+									and subject={$classID} 
+									and date_int>=".strtotime($quarters['now']['s'])."
+									and date_int<=".strtotime($quarters['now']['f']))[0]['count(*)'];
 $colWeek=(int)round($countClassesInQuarter/5,PHP_ROUND_HALF_DOWN);
 if (($countClassesInQuarter%5)!==0)$colWeek++;
 ?>
-    <style>
-		.table-content .studmark {
-			font-size: 8pt;
-		}
-        i {
-            border: solid white;
-            border-width: 0 3px 3px 0;
-            display: inline-block;
-            padding: 3px;
-        }
-        .save-btn{
-            margin: 0 20px 0 20px;
-        }
-        .rightArrow {
-            transform: rotate(-45deg);
-            -webkit-transform: rotate(-45deg);
-        }
-
-        .leftArrow {
-            transform: rotate(135deg);
-            -webkit-transform: rotate(135deg);
-        }
-        .page_border{
-            border: none;
-        }
-        .table-content tbody tr:hover{
-            background-color: #e2e0e0;
-        }
-        .shedForm{
-            margin-left: 20px
-        }
-        .table-content thead{
-            background-color: #a7d5d9
-        }
-        .center {
-            text-align: center;
-        }
-        .scroll {
-			overflow: auto;
-		}
-        .page_navigator a{
-            cursor: pointer;
-            padding: 4px;
-            margin-left: 4px;
-        }
-        .page_navigator a.active, .page_navigator span {
-            color: red;
-        }
-        .page_navigator{
-            margin: 10px;
-        }
-        .table-content input {
-            width: 20px;
-        }
-        .left {
-            border-right: 1px solid #bebebe;
-        }
-        .shadow {
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            overflow-y: hidden;
-        }
-        .headText {
-            margin-top: 20px;
-        }
-        .mark {
-            margin: 10px;
-        }
-    </style>
     <div class="row center headText">
-        <h1><?=isset($_REQUEST['QUAR'])?'Выбранная':'Текущая'?> четверть №<?=$quarters['now']['num']?> с <?=$quarters['now']['s']?> по <?=$quarters['now']['f']?></h1>
-        <h3><?if($allQuar):echo 'Просмотр четверти';else:?><?=isset($_REQUEST['PAGE'])?'Выбранная':'Текущая'?> учебная неделя №<?=$pageNum?>
-            с <?=$currentWeek[0]?> по <?=$currentWeek[1]?><?endif;?></h3>
+        <h4><?=isset($_REQUEST['QUAR'])?'Выбранная':'Текущая'?> четверть №<?=$quarters['now']['num']?> с <?=$quarters['now']['s']?> по <?=$quarters['now']['f']?></h4>
+        <h6><?if($allQuar):echo 'Просмотр четверти';else:?><?=isset($_REQUEST['PAGE'])?'Выбранная':'Текущая'?> учебная неделя №<?=$pageNum?>
+            с <?=$currentWeek[0]?> по <?=$currentWeek[1]?><?endif;?></h6>
         <div class="page_navigator">
             <button class="btn btn-primary" onclick="quar_loader(this)"
                     id="<?=$quarterNum==1?1:($quarterNum-1)?>">
@@ -219,7 +134,7 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
                 <tr>
                     <th scope="col" class="left" style="text-align: center">День</th>
                     <?foreach ($classesHeads as $day=>$week):?>
-                        <th scope="col"  class="left mark" style="text-align: center"><?=$day." (".$week.")"?></th>
+                        <th scope="col"  class="left mark_elem" style="text-align: center"><?=$day." (".$week.")"?></th>
                     <?endforeach;?>
                 </tr>
                 </thead>
@@ -244,7 +159,7 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
     </div>
     <?else:?>
     <div class="center">
-        <img src="../journal/loading.gif" width="150px">
+        <img src="../assets/loading.gif" width="150px">
         <h3>Нет оценок на неделе</h3></br>
     </div>
     <?endif;?>
@@ -255,47 +170,22 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
         <?php endfor;?>
     </div>
     <script>
-		(function() {
-			function scrollHorizontally(e) {
-				e = window.event || e;
-				var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-				document.getElementById('mouseScrolling').scrollLeft -= (delta*10); // Multiplied by 10
-				e.preventDefault();
-			}
-			if (document.getElementById('mouseScrolling').addEventListener) {
-				// IE9, Chrome, Safari, Opera
-				document.getElementById('mouseScrolling').addEventListener("mousewheel", scrollHorizontally, false);
-				// Firefox
-				document.getElementById('mouseScrolling').addEventListener("DOMMouseScroll", scrollHorizontally, false);
-			} else {
-				// IE 6/7/8
-				document.getElementById('mouseScrolling').attachEvent("onmousewheel", scrollHorizontally);
-			}
-		})();
 		function page_loader(elem) {
-			$('#diary').load("/diary/diary.php?id=<?=$studentID?>&QUAR=<?=$quarterNum?>&PAGE="+$(elem).attr("id"),function () {
+			$('#diary').load("<?=ROOT?>diary/diary.php?id=<?=$studentID?>&QUAR=<?=$quarterNum?>&PAGE="+$(elem).attr("id"),function () {
 				//$("#loading").remove();
 			});
 		}
 		function quar_loader(elem) {
             if ($(elem).attr('data-action')=='allQuar'){
-				$('#diary').load("/diary/diary.php?id=<?=$studentID?>&QUAR="+$(elem).attr("id")+"&allQuar=Y");
+				$('#diary').load("<?=ROOT?>diary/diary.php?id=<?=$studentID?>&QUAR="+$(elem).attr("id")+"&allQuar=Y");
             } else {
-				$('#diary').load("/diary/diary.php?id=<?=$studentID?>&QUAR=" + $(elem).attr("id") + "&PAGE=1");
+				$('#diary').load("<?=ROOT?>diary/diary.php?id=<?=$studentID?>&QUAR=" + $(elem).attr("id") + "&PAGE=1");
 			}
 		}
     </script>
 <?php
 function getCurrentSection($studentID){
-    $userClass = CUser::GetList($by, $ord, ['ID' => $studentID,
-        'ACTIVE' => 'Y'], [ 'SELECT'=>['UF_EDU_STRUCTURE']])->Fetch()['UF_EDU_STRUCTURE'];
-    $group=\CIBlockElement::GetById($userClass)->Fetch();
-    $groupsSections=getIBlockSections(11);
-    $group['section_name']=$groupsSections[$group['IBLOCK_SECTION_ID']];
-    $journal=getIBlockSections(12);
-    $section=array_search($group['section_name'],$journal);
-    if ($section<0) die('ошибка раздела журнала');
-    return $section;
+    return database::getInstance()->query('select classes_id from students_groups where student_id='.$studentID)[0]['classes_id'];
 }
 function getIBlockSections($id)
 {
@@ -307,38 +197,24 @@ function getIBlockSections($id)
     return $sect;
 }
 function getQuarters(&$quarterNum){
-    $req=\CIBlockElement::GetList(
-        ['PROPERTY_YEAR'=>'ASC'],
-        ['IBLOCK_ID'=>19,'PROPERTY_NOW'=>'Y'],
-        false,false,
-        [
-            'ID',
-            "NAME",
-            'PROPERTY_START1',
-            'PROPERTY_START2',
-            'PROPERTY_START3',
-            'PROPERTY_START4',
-            'PROPERTY_FINISH1',
-            'PROPERTY_FINISH2',
-            'PROPERTY_FINISH3',
-            'PROPERTY_FINISH4',
-        ])->Fetch();
+    $req=database::getInstance()->query("select * from quarters where now='Y' order by year asc")[0];
+    $format='d.m.Y';
     $result=[
         [
-            's'=>$req['PROPERTY_START1_VALUE'],
-            'f'=>$req['PROPERTY_FINISH1_VALUE']
+            's'=>date($format,strtotime($req['start1'])),
+            'f'=>date($format,strtotime($req['finish1']))
         ],
         [
-            's'=>$req['PROPERTY_START2_VALUE'],
-            'f'=>$req['PROPERTY_FINISH2_VALUE']
+            's'=>date($format,strtotime($req['start2'])),
+            'f'=>date($format,strtotime($req['finish2']))
         ],
         [
-            's'=>$req['PROPERTY_START3_VALUE'],
-            'f'=>$req['PROPERTY_FINISH3_VALUE']
+            's'=>date($format,strtotime($req['start3'])),
+            'f'=>date($format,strtotime($req['finish3']))
         ],
         [
-            's'=>$req['PROPERTY_START4_VALUE'],
-            'f'=>$req['PROPERTY_FINISH4_VALUE']
+            's'=>date($format,strtotime($req['start4'])),
+            'f'=>date($format,strtotime($req['finish4']))
         ],
     ];
     $now=time();

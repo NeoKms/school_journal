@@ -1,14 +1,17 @@
 <?php
-include($_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php");
-use DateTime;
-if(!CModule::IncludeModule("iblock")) die('ошибка битрикс');
+session_start();
+define('ROOT', '../');
+require (ROOT.'database/database.php');
+$db=database::getInstance();
+
 if (empty($_REQUEST['id'])) die('не верное занятие');
 else {
     $class=$_REQUEST['id'];
+    $className=$db->query('select name from subjects where id='.$class)[0]['name'];
 }
 if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE'];
 if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR'];
-$userGr=$USER->GetUserGroupArray();
+$userGr=$_SESSION['user']['groups'];
 $section=getCurrentSection();
 $quarters=getQuarters($quarterNum);
 $currentWeek=getWeek($quarters,$pageNum);
@@ -21,84 +24,60 @@ $students=getStudents();
 if (checkExist($quarters,$section,$class)<=0) {
     addInQuarter($quarters,$section,$class);
 }
-$elem=new CIBlockElement();
-$filterAll=[
-    'IBLOCK_ID'=>12,
-    'SECTION_ID'=>$section,
-    'PROPERTY_SUBJECT'=>$class,
-    ["LOGIC"=>'AND',
-        ['>=PROPERTY_EVENT_LENGTH'=>strtotime($quarters['now']['s'])],
-        ['<=PROPERTY_EVENT_LENGTH'=>strtotime($quarters['now']['f'])],
-    ]
-];
+$q = "from journal where group_id={$section} and subject={$class}";
+$date = " and date_int>=".strtotime($quarters['now']['s'])." and date_int<=".strtotime($quarters['now']['f']);
 if (!in_array(1,$userGr) && !in_array(12,$userGr)){//не админ и без доступа к кл.журналу
-    $filterAll['PROPERTY_TEACHER']=$USER->GetID();
+    $q.=' and teacher='.$_SESSION['user']['id'];
 }
-$countClassesInQuarter=\CIBlockElement::GetList([],$filterAll,[]);
+$countClassesInQuarter=$db->query("select count(*) ".$q.$date)[0]['count(*)'];
 $colWeek=(int)round($countClassesInQuarter/5,PHP_ROUND_HALF_DOWN);
 if (($countClassesInQuarter%5)!==0)$colWeek++;
-$filterWeek=$filterAll;
-$filterWeek[0]=[
-    ["LOGIC"=>'AND',
-        ['>=PROPERTY_EVENT_LENGTH'=>strtotime($currentWeek[0])],
-        ['<=PROPERTY_EVENT_LENGTH'=>strtotime($currentWeek[1])],
-    ]
-];
-$req=$elem::GetList(
-    ['PROPERTY_EVENT_LENGTH'=>'ASC'],
-    $filterWeek,
-    false,false,
-    [
-        'ID',
-        "NAME",
-        'IBLOCK_SECTION_ID',
-        'PROPERTY_TEACHER',
-        'PROPERTY_SUBJECT',
-        'PROPERTY_DATE_CLASS',
-        'PROPERTY_LESSON_THEME',
-        'PROPERTY_EVENT_LENGTH',
-		'PROPERTY_COMMENT_CLASS'
-    ]);
-$classesHeads=[];
+$date2 = " and date_int>=".strtotime($currentWeek[0])." and date_int<=".strtotime($currentWeek[1]);
+$res=$db->query("select * ".$q.$date2." order by date_int asc");
+$journalHeads=[];
 $classesBody=[];
-$classesIds=[];
+$journalIds=[];
 $classesMarks=[];
 $JournalTypesHead=[];
 $dayWeek=new DateTime();
-while($obj=$req->Fetch()){
-    $JournalTypesHead[$obj['ID']]=[];
-    $classesHeads[]=[
-        'id'=>$obj['ID'],
-        'day'=>$obj['PROPERTY_DATE_CLASS_VALUE'],
-		'week'=>switchWeek($dayWeek->setTimestamp($obj['PROPERTY_EVENT_LENGTH_VALUE'])->format('N')),
-		'theme'=>$obj['PROPERTY_LESSON_THEME_VALUE'],
-		'comment'=>$obj['PROPERTY_COMMENT_CLASS_VALUE'],
+foreach ($res as $obj){
+    $JournalTypesHead[$obj['id']]=[];
+    $journalHeads[]=[
+        'id'=>$obj['id'],
+        'day'=>$obj['date'],
+		'week'=>switchWeek($dayWeek->setTimestamp($obj['date_int'])->format('N')),
+		'theme'=>$obj['theme'],
+		'comment'=>$obj['comment'],
 		'types_marks'=>[],
     ];
-    $classesIds[]=$obj['ID'];
+    $journalIds[]=$obj['id'];
 }
-$req=$elem::GetList(['DATE_CREATE'=>"ASC"],
-	['IBLOCK_ID'=>21,'PROPERTY_SUBJECT'=>$_REQUEST['id'],'PROPERTY_CLASS'=>$classesIds,'PROPERTY_STUDENT'=>array_keys($students)],
-	false,false,
-	['PROPERTY_CLASS','PROPERTY_STUDENT','PROPERTY_TYPE','PROPERTY_MARK','ID','PROPERTY_TYPE.PROPERTY_SHORT']);
-while($obj=$req->Fetch()){
-    $studID=$obj['PROPERTY_STUDENT_VALUE'];
+$q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
+    ' from marks inner join type_marks on marks.type_id = type_marks.id '.
+    'where subject_id='.$_REQUEST['id']." and journal_id in ('".implode("','",$journalIds)."')".
+    "and student_id in ('".implode("','",array_keys($students))."') order by date_create asc";
+$req=$db->query($q);
+foreach ($req as $obj){
+    $studID=$obj['student_id'];
     if (!isset($classesMarks[$studID]))$classesMarks[$studID]=[];
-    if (!isset($classesMarks[$studID]))$classesMarks[$studID][$obj['PROPERTY_CLASS_VALUE']]=[];
-    $classesMarks[$studID][$obj['PROPERTY_CLASS_VALUE']][]=[
-    		$obj['PROPERTY_TYPE_VALUE'],
-        	$obj['PROPERTY_MARK_VALUE'],
-			$obj['ID'],
-        	$obj['PROPERTY_TYPE_PROPERTY_SHORT_VALUE']
+    if (!isset($classesMarks[$studID]))$classesMarks[$studID][$obj['journal_id']]=[];
+    $classesMarks[$studID][$obj['journal_id']][]=[
+    		$obj['type_id'],
+        	$obj['mark'],
+			$obj['id'],
+        	$obj['short']
 		];
 }
-foreach ($students as $firstStud=>$none){break;}
-foreach ($classesMarks[$firstStud] as $journalId=>$oneJournal){
-	foreach ($oneJournal as $oneMark) {
-        $JournalTypesHead[$journalId][] = $oneMark[3];
+if (!empty($classesMarks)) {
+    foreach ($students as $firstStud => $none) {
+        break;
+    }
+    foreach ($classesMarks[$firstStud] as $journalId => $oneJournal) {
+        foreach ($oneJournal as $oneMark) {
+            $JournalTypesHead[$journalId][] = $oneMark[3];
+        }
     }
 }
-
 $predMonth=getPredNextMonth($calendar,$nowCalendar,$quarters,-1);
 $predMonth_week=$predMonth[0];
 $predMonth_quarter=$predMonth[1];
@@ -106,106 +85,22 @@ $predMonth_quarter=$predMonth[1];
 $nexMonth=getPredNextMonth($calendar,$nowCalendar,$quarters,1);
 $nexMonth_week=$nexMonth[0];
 $nexMonth_quarter=$nexMonth[1];
-
 ?>
-<style>
-    i {
-        border: solid white;
-        border-width: 0 3px 3px 0;
-        display: inline-block;
-        padding: 3px;
-    }
-    .save-btn{
-        margin: 0 20px 0 20px;
-    }
-    .rightArrow {
-        transform: rotate(-45deg);
-        -webkit-transform: rotate(-45deg);
-    }
-
-    .leftArrow {
-        transform: rotate(135deg);
-        -webkit-transform: rotate(135deg);
-    }
-    .page_border{
-        border: none;
-    }
-    .table-content tbody tr:hover{
-        background-color: #e2e0e0;
-    }
-    .shedForm{
-        margin-left: 20px
-    }
-    .table-content thead{
-        background-color: #a7d5d9
-    }
-	.calendar, .calendarTextLeft{
-		margin-left: 50px;
-		margin-right: 50px;
-	}
-	.calendar td {
-		padding: 6px;
-	}
-	.calendar tbody tr:hover{
-		background-color: #e2e0e0;
-		cursor: pointer;
-	}
-    .center {
-        text-align: center;
-    }
-    .scroll {
-        overflow: auto;
-    }
-    .page_navigator a{
-        cursor: pointer;
-        padding: 4px;
-        margin-left: 4px;
-    }
-    .page_navigator a.active, .page_navigator span {
-        color: red;
-    }
-    .page_navigator{
-        margin: 10px;
-    }
-	.table-content .mark {
-		width: 20px;
-		font-size: 9pt;
-	}
-	.table-content .theme {
-		 width: 75px;
-		 font-size: 9pt;
-	 }
-	.table-content .comment {
-		width: 65px;
-		font-size: 9pt;
-	}
-    .left {
-        border-right: 2px solid #bebebe;
-		text-align: center !important;
-    }
-    .shadow {
-        box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        overflow-y: hidden;
-    }
-    .headText {
-        margin-top: 20px;
-    }
-</style>
 <div class="row center headText" >
-	<button class="btn btn-primary" onclick="quar_loader(this)" style="padding: 2px;"
+	<button class="btn btn-primary quarter-btn" onclick="quar_loader(this)"
 			id="<?=$quarterNum==1?1:($quarterNum-1)?>">
 		<i class="arrow leftArrow"></i> четверть</button>
-	<span style="font-size: 12pt"><b><?=isset($_REQUEST['QUAR'])?'Выбранная':'Текущая'?><span style="color: red"> четверть №<?=$quarters['now']['num']?></span> с <?=$quarters['now']['s']?> по <?=$quarters['now']['f']?></b></span>
-	<button class="btn btn-primary" onclick="quar_loader(this)" style="padding: 2px;"
+	<span class="quarter-name"><b><?=isset($_REQUEST['QUAR'])?'Выбранная':'Текущая'?><span class="text-red"> четверть №<?=$quarters['now']['num']?></span> с <?=$quarters['now']['s']?> по <?=$quarters['now']['f']?></b></span>
+	<button class="btn btn-primary quarter-btn" onclick="quar_loader(this)"
 			id="<?=$quarterNum==4?4:($quarterNum+1)?>">
-		четверть <i class="arrow rightArrow"></i></button></br></br>
+		четверть <i class="arrow rightArrow"></i></button>
 </div>
-<div class="row" style="display: flex;margin-left: 20px">
+<div class="row week-block">
 	<div class="col-md center calendarTextLeft">
 		</br></br>
 		<p><b><?=isset($_REQUEST['PAGE'])?'Выбранна':'Текущая'?> учебная неделя в данной четверти - №<?=$pageNum?></b></p>
 		<p><?=$currentWeek[0]?> - <?=$currentWeek[1]?></p>
-	<span><b>Предмет:  </b><?=CIBlockElement::GetByID($class)->Fetch()['NAME']?></span></br></br>
+	<span><b>Предмет:  </b><?=$className?></span></br></br>
 		<?if($quarters['edit']):?>
 			<button class="btn btn-danger save-btn" form="journalList" <?=$quarters['edit']?'':'disabled'?>>Сохранить</button>
 		<?else:?>
@@ -219,9 +114,9 @@ $nexMonth_quarter=$nexMonth[1];
 <table class="calendar" id="calendar">
 	<thead>
 	<tr>
-		<th id="<?=$predMonth_week?>" data-content="<?=$predMonth_quarter?>" onclick="pageNquarter_loader(this)" style="cursor: pointer"><i class="arrow leftArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></th>
+		<th id="<?=$predMonth_week?>" data-content="<?=$predMonth_quarter?>" onclick="pageNquarter_loader(this)" class="arrow-btn"><i class="arrow leftArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></th>
 		<th colspan="5"><?=switchMonth($nowCalendar['m']).' '.$nowCalendar['Y']?></th>
-		<th id="<?=$nexMonth_week?>" data-content="<?=$nexMonth_quarter?>" onclick="pageNquarter_loader(this)" style="cursor: pointer"><i class="arrow rightArrow" style="border: solid red;border-width: 0 3px 3px 0;"></th>
+		<th id="<?=$nexMonth_week?>" data-content="<?=$nexMonth_quarter?>" onclick="pageNquarter_loader(this)" class="arrow-btn"><i class="arrow rightArrow" style="border: solid red;border-width: 0 3px 3px 0;"></th>
 	</tr>
 	<tr>
 		<th></th>
@@ -248,21 +143,21 @@ $nexMonth_quarter=$nexMonth[1];
 	</div>
 </div>
 </br>
+<div class="row text-red"> * кликните на день, а потом на список сокращений, чтобы добавить оценку.</div>
 <div class="row scroll shadow" id="mouseScrolling">
     <form method="post" class="shedForm" id="journalList">
 		<input name="subject" value="<?=$_REQUEST['id']?>" hidden>
             <table class="table table-sm table-content">
                 <thead >
                 <tr>
-                    <th scope="col" class="left" style="text-align: center">Учащиеся</th>
-                    <?foreach ($classesHeads as $ind=>$oneClass):
+                    <th scope="col" class="left align-content-center">Учащиеся</th>
+                    <?foreach ($journalHeads as $ind=> $oneClass):
 						$colspan=count($JournalTypesHead[$oneClass['id']])?>
                     <th scope="col" id="head_<?=$ind?>"
 						colspan="<?=$colspan==0?1:$colspan?>"
 						data-content="<?=$ind?>"
 						journalId="<?=$oneClass['id']?>"
-						class="left"
-						style="text-align: center; cursor: pointer"
+						class="left date-head"
 						onclick="setActive(this);">
 						<?=$oneClass['day']." (".$oneClass['week'].")"?>
 					</th>
@@ -270,15 +165,15 @@ $nexMonth_quarter=$nexMonth[1];
                 </tr>
 				<tr>
 					<th class="left" id="first_sokr">Сокращение</th>
-					<?foreach ($classesHeads as $ind=>$oneClass):?>
+					<?foreach ($journalHeads as $ind=> $oneClass):?>
                     	<?
                         $indType=0;
 						foreach ($JournalTypesHead[$oneClass['id']] as $none=>$name):?>
-						<th scope="col" id="head_<?=$ind?>_<?=$indType?>" class="left" style="text-align: center;"><?=$name?></th>
+						<th scope="col" id="head_<?=$ind?>_<?=$indType?>" class="left align-content-center"><?=$name?></th>
                         <?$indType++;
 						endforeach;
                         if ($indType==0):?>
-						<th scope="col" id="head_<?=$ind?>_<?=$indType?>" class="left" style="text-align: center;"></th>
+						<th scope="col" id="head_<?=$ind?>_<?=$indType?>" class="left align-content-center"></th>
 						<?endif?>
 						<script>
 							window.arrHead.push(<?=$indType==0?0:$indType?>);
@@ -297,21 +192,23 @@ $nexMonth_quarter=$nexMonth[1];
                         <td class="left">
                             <?=$oneStudent?>
                         </td>
-                        <?foreach ($classesHeads as $ind=>$oneClass):?>
+                        <?foreach ($journalHeads as $ind=> $oneClass):?>
                             <?
                             $indMark=0;
                             $markWas=false;
-							foreach ($classesMarks[$id_stud][$oneClass['id']] as $indMark=>$oneMark):
-								$markWas=true;?>
-								<td class="left" id="row_<?=$indStud?>_day_<?=$ind?>_<?=$indMark?>">
-								<input id="mark_<?=$oneClass['id']?>_<?=$id_stud?>_<?=$oneMark[2]?>"
-									   class="mark"
-									<?=$quarters['edit']?'':'disabled'?>
-									   value="<?=$oneMark[1]?>"
-									   name="marks[<?=$oneClass['id']?>][<?=$id_stud?>][<?=$oneMark[2]?>][mark]"
-								>
-								</td>
-                            <?endforeach;
+                            if (isset($classesMarks[$id_stud]) && isset($classesMarks[$id_stud][$oneClass['id']])) {
+                                foreach ($classesMarks[$id_stud][$oneClass['id']] as $indMark => $oneMark):
+                                    $markWas = true; ?>
+									<td class="left" id="row_<?=$indStud?>_day_<?=$ind?>_<?=$indMark?>">
+										<input id="mark_<?=$oneClass['id']?>_<?=$id_stud?>_<?=$oneMark[2]?>"
+											   class="mark"
+                                            <?=$quarters['edit'] ? '' : 'disabled'?>
+											   value="<?=$oneMark[1]?>"
+											   name="marks[<?=$oneClass['id']?>][<?=$id_stud?>][<?=$oneMark[2]?>][mark]"
+										>
+									</td>
+                                <?endforeach;
+                            }
                             if (!$markWas):?>
 								<td class="left" id="row_<?=$indStud?>_day_<?=$ind?>_<?=$indMark?>">
 								</td>
@@ -321,8 +218,8 @@ $nexMonth_quarter=$nexMonth[1];
                 <?$indStud++;
 				endforeach;?>
 				<tr>
-					<td class="left" style="color: red"><b>Тема урока: </b></td>
-                <?foreach ($classesHeads as $ind=>$oneClass):
+					<td class="left text-red"><b>Тема урока: </b></td>
+                <?foreach ($journalHeads as $ind=> $oneClass):
                     $colspan=count($JournalTypesHead[$oneClass['id']])?>
 					<td class="left" id="theme_<?=$ind?>" colspan="<?=$colspan==0?1:$colspan?>">
 							<input id="theme_<?=$ind?>_input"
@@ -335,8 +232,8 @@ $nexMonth_quarter=$nexMonth[1];
                 <?endforeach;?>
 				</tr>
 				<tr>
-					<td class="left" style="color: red"><b>Комментарий к уроку: </b></td>
-                    <?foreach ($classesHeads as $ind=>$oneClass):
+					<td class="left text-red"><b>Комментарий к уроку: </b></td>
+                    <?foreach ($journalHeads as $ind=> $oneClass):
                         $colspan=count($JournalTypesHead[$oneClass['id']])?>
 						<td class="left" id="comment_<?=$ind?>" colspan="<?=$colspan==0?1:$colspan?>">
 							<textarea id="comment_<?=$ind?>_textarea"
@@ -373,19 +270,19 @@ $nexMonth_quarter=$nexMonth[1];
 	}
 	function pageNquarter_loader(elem) {
 		obnul();
-		$('#journal').load("/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>&QUAR="+$(elem).attr("data-content")+"&PAGE="+$(elem).attr("id"),function () {
+		$('#journal').load("<?=ROOT?>/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>&QUAR="+$(elem).attr("data-content")+"&PAGE="+$(elem).attr("id"),function () {
 			//$("#loading").remove();
 		});
 	}
 	function page_loader(elem) {
 		obnul();
-        $('#journal').load("/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>&QUAR=<?=$quarterNum?>&PAGE="+$(elem).attr("id"),function () {
+        $('#journal').load("<?=ROOT?>/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>&QUAR=<?=$quarterNum?>&PAGE="+$(elem).attr("id"),function () {
         //$("#loading").remove();
         });
 	}
 	function quar_loader(elem) {
 		obnul();
-		$('#journal').load("/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>&QUAR="+$(elem).attr("id")+"&PAGE=1",function () {
+		$('#journal').load("<?=ROOT?>/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>&QUAR="+$(elem).attr("id")+"&PAGE=1",function () {
 			//$("#loading").remove();
 		});
 	}
@@ -393,17 +290,17 @@ $nexMonth_quarter=$nexMonth[1];
 		let journalElem=$("#journal");
 		loadingShow(journalElem);
 		obnul();
-		journalElem.load("/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>",function () {
+		journalElem.load("<?=ROOT?>/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>",function () {
 			// $("#loading").remove();
 		});
 	}
 	$( "#journalList" ).submit(function( event ){
 		event.preventDefault();
 		var strData= $( "#journalList" ).serialize();
-		$.post( "/journal/index.php", $( "#journalList" ).serialize() ,function( data ) {
+		$.post( "<?=ROOT?>/journal/index.php", $( "#journalList" ).serialize() ,function( data ) {
 			if (data=='success'){
 				obnul();
-				$('#journal').load("/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>");
+				$('#journal').load("<?=ROOT?>/journal/schedule.php?id=<?=$_REQUEST['id']?>&classes=<?=$_REQUEST['classes']?>");
 				alert( "Успешно сохранено" );
 			}
 		});
@@ -411,11 +308,7 @@ $nexMonth_quarter=$nexMonth[1];
 </script>
 <?php
 function getCurrentSection(){
-    $group=\CIBlockElement::GetById($_REQUEST['classes'])->Fetch();
-    $groupsSections=getIBlockSections(11);
-    $group['section_name']=$groupsSections[$group['IBLOCK_SECTION_ID']];
-    $journal=getIBlockSections(12);
-    $section=array_search($group['section_name'],$journal);
+    $section = database::getInstance()->query('SELECT group_id from subjects where id='.$_REQUEST['classes'])[0]['group_id'];
     if ($section<0) die('ошибка раздела журнала');
     return $section;
 }
@@ -430,87 +323,52 @@ function getIBlockSections($id)
 }
 function addInQuarter($quarters,$section,$class){
     $days=array_merge(getQuartersDays($quarters[0]),getQuartersDays($quarters[1]),getQuartersDays($quarters[2]),getQuartersDays($quarters[3]));
-    GLOBAL $USER;
-    $elem=new CIBlockElement();
-    $ClassElem=$elem::GetByID($class)->fetch();
-    $teacher=$elem::GetProperty(10,$class,[],['CODE'=>'teacher'])->Fetch()['VALUE'];
-    $nameClasses=$ClassElem['NAME'];
-    $PROP = Array(
-        "TEACHER"			=> $teacher,
-        'SUBJECT'=>$class,
-//        'MARKS'=>$marks
-    );
-    $arUpdateValues = Array(
-        "MODIFIED_BY" =>        $USER->GetID(),  // элемент изменен текущим пользователем
-        "IBLOCK_SECTION_ID" =>  $section,
-        "IBLOCK_ID" =>          12,
-        "PROPERTY_VALUES"   =>  $PROP,
-        "ACTIVE"    =>          "Y",			// активен
-    );
+    $db = database::getInstance();
+    $ClassElem=$db->query('select name,teacher_id from subjects where id='.$class)[0];
+    $nameClasses=$ClassElem['name'];
     foreach ($days as $oneDay){
-        $arUpdateValues['PROPERTY_VALUES']['DATE_CLASS']=$oneDay;
-        $arUpdateValues['PROPERTY_VALUES']['EVENT_LENGTH']=strtotime($oneDay);
-        $arUpdateValues['NAME']=$oneDay.' '.$nameClasses;
-        $NewID = $elem->Add($arUpdateValues);
+        $PROP = Array(
+            'subject'=>$class,
+            "group_id" => $section,
+			'date_int'=>strtotime($oneDay),
+			'date'=>$oneDay,
+            'teacher' => $ClassElem['teacher_id'],
+			'name' =>$oneDay.' '.$nameClasses,
+			'theme'=>'',
+			'comment'=>'',
+        );
+        $q="insert into journal (subject, group_id, date_int, date, teacher, name, theme, comment) values ('".implode("','",$PROP)."')";
+    	$db->query($q);
     }
 }
 function getStudents($allSection=false){
-    $studentsIds=CGroup::GetGroupUser(9);
-    $by='name';$ord='asc';
-    if ($allSection){
-        $allSection=CIBlockElement::GetByID($_REQUEST['classes'])->Fetch()['IBLOCK_SECTION_ID'];
-        $res=CIBlockElement::GetList([],['IBLOCK_ID'=>11,'SECTION_ID'=>$allSection],
-            false,false,['ID']);
-        $allSection=[];
-        while ($obj=$res->Fetch()){
-            $allSection[]=$obj['ID'];
-        }
-        $users = CUser::GetList($by, $ord, ['ID' => implode(' | ', $studentsIds),
-            'ACTIVE' => 'Y', 'UF_EDU_STRUCTURE' => $allSection], []);
-    } else {
-        $users = CUser::GetList($by, $ord, ['ID' => implode(' | ', $studentsIds),
-            'ACTIVE' => 'Y', 'UF_EDU_STRUCTURE' => $_REQUEST['classes']], []);
-    }
+	//ToDo таблица юзер-студент-класс. взять студентов по классу из реквеста.
+	$res = database::getInstance()->query("select * from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$_REQUEST['classes']}");
     $students=[];
-    while ($user=$users->fetch()){
-        $students[$user['ID']]="{$user['LAST_NAME']} ".strtoupper(substr($user['NAME'],0,2)).".";
-//            echo "{$user['LAST_NAME']} ".strtoupper(substr($user['NAME'],1,1)).".</br>";
+    foreach ($res as $oneStud) {
+        $students[$oneStud['id']]="{$oneStud['name']}";
     }
-    return $students;
+	return $students;
 }
 function getQuarters(&$quarterNum){
-    $req=\CIBlockElement::GetList(
-        ['PROPERTY_YEAR'=>'ASC'],
-        ['IBLOCK_ID'=>19,'PROPERTY_NOW'=>'Y'],
-        false,false,
-        [
-            'ID',
-            "NAME",
-            'PROPERTY_START1',
-            'PROPERTY_START2',
-            'PROPERTY_START3',
-            'PROPERTY_START4',
-            'PROPERTY_FINISH1',
-            'PROPERTY_FINISH2',
-            'PROPERTY_FINISH3',
-            'PROPERTY_FINISH4',
-        ])->Fetch();
+	$req=database::getInstance()->query("select * from quarters where now='Y' order by year asc")[0];
+	$format='d.m.Y';
     $result=[
         [
-            's'=>$req['PROPERTY_START1_VALUE'],
-            'f'=>$req['PROPERTY_FINISH1_VALUE']
+            's'=>date($format,strtotime($req['start1'])),
+            'f'=>date($format,strtotime($req['finish1']))
         ],
         [
-            's'=>$req['PROPERTY_START2_VALUE'],
-            'f'=>$req['PROPERTY_FINISH2_VALUE']
+            's'=>date($format,strtotime($req['start2'])),
+            'f'=>date($format,strtotime($req['finish2']))
         ],
         [
-            's'=>$req['PROPERTY_START3_VALUE'],
-            'f'=>$req['PROPERTY_FINISH3_VALUE']
+            's'=>date($format,strtotime($req['start3'])),
+            'f'=>date($format,strtotime($req['finish3']))
         ],
         [
-            's'=>$req['PROPERTY_START4_VALUE'],
-            'f'=>$req['PROPERTY_FINISH4_VALUE']
+            's'=>date($format,strtotime($req['start4'])),
+            'f'=>date($format,strtotime($req['finish4']))
         ],
     ];
     $now=time();
@@ -542,9 +400,8 @@ function getQuarters(&$quarterNum){
     return $result;
 }
 function checkExist($quarters,$section,$id){
-    $filter=['IBLOCK_ID'=>12,'PROPERTY_SUBJECT'=>$id,'SECTION_ID'=>$section,'PROPERTY_DATE_CLASS'=>$quarters[0]['s']];
-    $count=CIBlockElement::GetList([], $filter, []);
-    return $count;
+    $res = database::getInstance()->query("select * from journal where date_int=".strtotime($quarters[0]['s']).' and group_id='.$section.' and subject='.$id);
+    return count($res);
 }
 function getQuartersDays($q,$calendar=false){
     $arr=[];

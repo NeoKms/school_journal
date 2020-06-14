@@ -1,11 +1,10 @@
-<?
-require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
-$APPLICATION->SetTitle("Журнал");
-global $USER;
-if(!CModule::IncludeModule("iblock")) die();
-$arGroups = $USER->GetUserGroupArray();
+<?php
+define('ROOT', '../');
+session_start();
+$title = 'Журнал';
+require(ROOT."header.php");
+$arGroups = $_SESSION['user']['groups'];
 if (isset($_REQUEST['id_quarter'])){
-    $elem_qu=new CIBlockElement();
     foreach ($_REQUEST['id_quarter'] as $ind=>$quar){
 		$PROP = Array(
 			"start1" => date('d.m.Y',strtotime($_REQUEST['s1'][$ind])),
@@ -16,54 +15,63 @@ if (isset($_REQUEST['id_quarter'])){
             "finish3" => date('d.m.Y',strtotime($_REQUEST['f3'][$ind])),
             "start4" => date('d.m.Y',strtotime($_REQUEST['s4'][$ind])),
             "finish4" => date('d.m.Y',strtotime($_REQUEST['f4'][$ind])),
-			'NOW'=>'N',
+			'now'=>'N',
 		);
-		if ($quar==$_REQUEST['NOW'])$PROP['NOW']='Y';
-        CIBlockElement::SetPropertyValuesEx($quar, 19, $PROP);
+		if ($quar==$_REQUEST['NOW'])$PROP['now']='Y';
+		$q = "update quarters set ";
+		foreach ($PROP as $name=>$val) {
+			if ($name=='now') {
+                $q.="$name='{$val}'";
+			} else {
+                $q .= "$name='{$val}',";
+            }
+		}
+		$q.=" where id=".$quar;
+        $res = database::getInstance()->query($q);
     }
 }
 if (isset($_REQUEST['marks'])){
 	$marksArr=$_REQUEST['marks'];
 	$daysArr=$_REQUEST['day'];
 	$subject=$_REQUEST['subject'];
-    ob_end_clean();
-    $res=CIBlockElement::getList([],['IBLOCK_ID'=>20],false,false,['ID','PROPERTY_short']);
+    $db = database::getInstance();
+    $res=$db->query('select id,short from type_marks');
     $arrTypesMarks=[];
-    while ($obj=$res->fetch()){
-        $arrTypesMarks[$obj['PROPERTY_SHORT_VALUE']]=$obj['ID'];
+   foreach ($res as $obj){
+        $arrTypesMarks[$obj['short']]=$obj['id'];
 	}
-//    echo "<pre>";
-//    var_dump($marksArr);
-//    var_dump($daysArr);
-//    var_dump($subject);
-//    var_dump($arrTypesMarks);
-//    echo "</pre>";
-//    exit;
-    $elem=new CIBlockElement();
     foreach ($daysArr as $id => $dayData){
-        $elem->SetPropertyValuesEx($id,12,['LESSON_THEME'=>$dayData['theme'],'comment_class'=>$dayData['comment']]);
+        $q = "update journal set ";
+        if ($dayData['theme']!=''&&$dayData['comment']!=''){
+            $q.="theme = '{$dayData['theme']}'";
+            $q.=", comment = '{$dayData['comment']}'";
+		} elseif ($dayData['theme']!=''){
+    		$q.="theme = '{$dayData['theme']}'";
+		} elseif ($dayData['comment']!=''){
+    		$q.="comment = '{$dayData['comment']}'";
+		} else {
+        	continue;
+		}
+    	$q.=" where id=".$id;
+        $db->query($q);
 	}
     foreach ($marksArr as $journalId=>$ArrStud){
         foreach ($ArrStud as $studID=>$marks){
         	foreach ($marks as $id => $value){
                 $PROP = Array(
                     "mark"		=> 	$value['mark'],
-                    'student'	=>	$studID,
-                    'type' 		=> $arrTypesMarks[$value['type']],
-					'class'		=>	$journalId,
-					'subject'	=> $subject,
+                    'student_id'	=>	$studID,
+                    'type_id' 		=> $arrTypesMarks[$value['type'] ?? ''] ?? '',
+					'journal_id'		=>	$journalId,
+					'subject_id'	=> $subject,
+					'date_create'=>time(),
                 );
                 if ($id>0){
-                    $elem->SetPropertyValuesEx($id,21,['mark'=>$value['mark']]);
+                	$q = "update marks set mark = '{$value['mark']}' where id=".$id;
+                	$db->query($q);
 				} else {
-                    $arUpdateValues = Array(
-                        "MODIFIED_BY" =>        $USER->GetID(),
-                        "IBLOCK_ID" =>          21,
-                        "PROPERTY_VALUES"   =>  $PROP,
-                        "ACTIVE"    =>          "Y",
-						'NAME'=>$journalId.' '.$studID,
-                    );
-                    (new CIBlockElement())->Add($arUpdateValues);
+                    $q="insert into marks (".implode(",",array_keys($PROP)).") values ('".implode("','",$PROP)."')";
+                    $db->query($q);
 				}
             }
 		}
@@ -74,7 +82,7 @@ if (isset($_REQUEST['marks'])){
 }
 ?>
 <div id="classes" class="container">
-  <h1> Выберите класс</h1>
+  <h3> Выберите класс</h3>
 </div>
 <div id="journal" class="container">
 <script>
@@ -96,7 +104,6 @@ if (isset($_REQUEST['marks'])){
 					inputHidden.name="marks["+journalID+"]["+window.studentIds[i]+"]["+window.COUNTER_IDS+"][type]";
 					inputHidden.value=elem.id;
 					let input0 = document.createElement('input');
-					// input0.id="mark_"+day+"_"+student+"_"+new_Id;
 					input0.className='mark';
 					input0.name="marks["+journalID+"]["+window.studentIds[i]+"]["+window.COUNTER_IDS+"][mark]";
 					$('#row_'+i+'_day_'+window.activ_elem_type_ind+'_0').append(inputHidden);
@@ -152,4 +159,4 @@ if (isset($_REQUEST['marks'])){
 	}
 </script>
 </div>
- <?require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");?>
+<?php require(ROOT."footer.php"); ?>
