@@ -21,25 +21,25 @@ $is_student = in_array(3, $user['groups']);
 <div class="header_menu">
     <ul class="header_menu_ul">
         <li class="header_menu_item">
-            <a href="/school/index.php?user=admin">Админ</a>
+            <a href="<?=ROOT?>index.php?user=admin">Админ</a>
         </li>
         <li class="header_menu_item">
-            <a href="/school/index.php?user=teacher1">Препод 1</a>
+            <a href="<?=ROOT?>index.php?user=teacher1">Препод 1</a>
         </li>
         <li class="header_menu_item">
-            <a href="/school/index.php?user=teacher2">Препод&nbsp; 2</a>
+            <a href="<?=ROOT?>index.php?user=teacher2">Препод&nbsp; 2</a>
         </li>
         <li class="header_menu_item">
-            <a href="/school/index.php?user=student1">Ученик 1</a>
+            <a href="<?=ROOT?>index.php?user=student1">Ученик 1</a>
         </li>
         <li class="header_menu_item" <?=$is_student ? 'hidden' : ''?>>
-            <a href="http://localhost/school/journal" >Журнал</a>
+            <a href="<?=ROOT?>journal" >Журнал</a>
         </li>
         <li class="header_menu_item">
-            <a href="http://localhost/school/diary">Дневник</a>
+            <a href="<?=ROOT?>diary">Дневник</a>
         </li>
         <li class="header_menu_item">
-            <a href="/school/index.php?user=student2">Ученик 2</a>
+            <a href="<?=ROOT?>index.php?user=student2">Ученик 2</a>
         </li>
     </ul>
 </div>
