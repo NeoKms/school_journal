@@ -54,16 +54,14 @@ foreach ($res as $obj){
         ];
     }
 }
-
 $subjectIDS=array_unique($subjectIDS);
 $journalIDS=array_unique($journalIDS);
 $existMarksIds=[];
 $q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
     ' from marks inner join type_marks on marks.type_id = type_marks.id '.
-    "where subject_id in ('".implode("','",$subjectIDS)."') and journal_id in ('".implode("','",$journalIDS)."')".
-    "and student_id =".$studentID." order by marks.mark asc";
+    "where marks.subject_id in ('".implode("','",$subjectIDS)."') and marks.journal_id in ('".implode("','",$journalIDS)."')".
+    " and marks.student_id=".$studentID." order by marks.mark asc";
 $res = $db->query($q);
-
 foreach ($res as $obj){
     $studID=$obj['student_id'];
     $journalID=$obj['journal_id'];

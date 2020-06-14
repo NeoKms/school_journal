@@ -343,12 +343,12 @@ function addInQuarter($quarters,$section,$class){
 }
 function getStudents($allSection=false){
 	//ToDo таблица юзер-студент-класс. взять студентов по классу из реквеста.
-	$res = database::getInstance()->query("select * from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$_REQUEST['classes']}");
-    $students=[];
+	$res = database::getInstance()->query("select users.id, users.name from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$_REQUEST['classes']}");
+	$students=[];
     foreach ($res as $oneStud) {
         $students[$oneStud['id']]="{$oneStud['name']}";
     }
-	return $students;
+    return $students;
 }
 function getQuarters(&$quarterNum){
 	$req=database::getInstance()->query("select * from quarters where now='Y' order by year asc")[0];
