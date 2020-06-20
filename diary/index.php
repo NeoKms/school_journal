@@ -18,7 +18,7 @@ $studId=$_SESSION['user']['id'];
 <div id="diary" class="container">
 </div>
 <script>
-	let text="<div id='loading' style='text-align: center;'><img src='<?=ROOT?>assets/loading.gif' width='200px'><h2>Пожалуйста, подождите немного</h2></div>";
+	let text="<div id='loading' style='text-align: center;'><img src='<?=ROOT?>assets/loadingNew.gif' width='200px'><h2>Пожалуйста, подождите немного</h2></div>";
 	$('#diary').append(text);
 	$('#diary').load("<?=ROOT?>diary/diary.php?id=<?=$studId?>");
 </script>
