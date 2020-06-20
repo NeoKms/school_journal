@@ -3,6 +3,7 @@
 <?php
 $user = $_SESSION['user'];
 $is_student = in_array(3, $user['groups']);
+if (!isset($page)) $page='';
 ?>
 <head>
     <meta charset="UTF-8">
@@ -26,12 +27,10 @@ $is_student = in_array(3, $user['groups']);
 	<div class="collapse navbar-collapse">
 		<ul class="navbar-nav mr-auto">
 			<li class="nav-item">
-				<a class="nav-link" href="/index.php">На главную</a>
+				<a class="nav-link" href="<?=ROOT?>index.php">На главную</a>
 			</li>
 			<li class="nav-item dropdown">
-				<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-					Пользователи
-				</a>
+				<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Пользователи</a>
 				<div class="dropdown-menu" aria-labelledby="navbarDropdown">
 					<a class="dropdown-item" href="<?=ROOT?>index.php?user=admin">Админ</a>
 					<div class="dropdown-divider"></div>
@@ -52,17 +51,26 @@ $is_student = in_array(3, $user['groups']);
 				<a class="nav-link" href="<?=ROOT?>diary/">Дневник</a>
 			</li>
 			<li class="nav-item">
-				<a class="nav-link disabled" href="index.php?path=user/auth/1">Контакты</a>
+				<a class="nav-link disabled" href="">Контакты</a>
 			</li>
 			<li class="nav-item">
-				<a class="nav-link disabled" id="p-basketcontroller-index">Лицензии</a>
+				<a class="nav-link disabled" id="">Лицензии</a>
 			</li>
 			<li class="nav-item">
-				<a class="nav-link disabled" id="p-basketcontroller-index">Аккредитация</a>
+				<a class="nav-link disabled" id="">Аккредитация</a>
 			</li>
 		</ul>
 	</div>
 </nav>
+<script>
+	$(".nav-link").each(function (index) {
+		let elem = $(this);
+		let pageName='<?=htmlspecialchars($page)?>';
+		if (pageName==elem.text()) {
+			elem.addClass('active');
+		}
+	});
+</script>
 <?php
 require (ROOT.'database/database.php');
 $db=database::getInstance();

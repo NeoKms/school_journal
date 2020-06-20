@@ -98,20 +98,20 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
             с <?=$currentWeek[0]?> по <?=$currentWeek[1]?><?endif;?></h6>
         <div class="page_navigator">
             <button class="btn btn-primary" onclick="quar_loader(this)"
-                    id="<?=$quarterNum==1?1:($quarterNum-1)?>">
+                    id="<?=$quarters['now']['num']==1?1:$quarters['now']['num']-1?>">
                 <i class="arrow leftArrow"></i> четверть</button>
             <button class="btn btn-primary" onclick="page_loader(this)"
-                    id="<?=$pageNum==1?1:($pageNum-1)?>">
+                    id="<?=$pageNum==1?1:($pageNum==NULL?1:($pageNum-1))?>">
                 <i class="arrow leftArrow"></i> неделя
             </button>
             <?if ($allQuar):?>
             <button class="btn btn-warning" onclick="page_loader(this)"
-                    id="<?=$pageNum?>">
+                    id="<?=$pageNum==NULL?1:$pageNum?>">
                 На неделе
             </button>
             <?else:?>
                 <button class="btn btn-warning" onclick="quar_loader(this)"
-                        id="<?=$quarterNum?>" data-action="allQuar">
+                        id="<?=$quarters['now']['num']?>" data-action="allQuar">
                     За четверть
                 </button>
             <?endif;?>
@@ -120,7 +120,7 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
                 неделя <i class="arrow rightArrow"></i>
             </button>
             <button class="btn btn-primary" onclick="quar_loader(this)"
-                    id="<?=$quarterNum==4?4:($quarterNum+1)?>">
+                    id="<?=$quarters['now']['num']==4?4:($quarters['now']['num']+1)?>">
                 четверть <i class="arrow rightArrow"></i></button>
         </div>
     </div>

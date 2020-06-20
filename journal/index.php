@@ -1,7 +1,8 @@
 <?php
 define('ROOT', '../');
 session_start();
-$title = 'Журнал';
+ob_start();
+$page = $title = 'Журнал';
 require(ROOT."header.php");
 $arGroups = $_SESSION['user']['groups'];
 if (isset($_REQUEST['id_quarter'])){

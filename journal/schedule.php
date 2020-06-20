@@ -9,11 +9,12 @@ else {
     $class=$_REQUEST['id'];
     $className=$db->query('select name from subjects where id='.$class)[0]['name'];
 }
-if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE']; else $pageNum=1;
-if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR']; else $quarterNum=1;
+if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE'];
+if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR'];
 $userGr=$_SESSION['user']['groups'];
 $section=getCurrentSection();
 $quarters=getQuarters($quarterNum);
+$endOfYear = strtotime($quarters[3]['f'])<time();
 $currentWeek=getWeek($quarters,$pageNum);
 $quarters['edit']=strtotime($currentWeek[0])<=time() && strtotime($currentWeek[1])>=time();
 if (in_array(1,$userGr)) $quarters['edit']=true;
@@ -87,9 +88,9 @@ $nexMonth_week=$nexMonth[0];
 $nexMonth_quarter=$nexMonth[1];
 ?>
 <div class="row center headText" >
-	<div id="<?=$quarterNum==1?1:($quarterNum-1)?>" onclick="quar_loader(this)" class="arrow-btn" style="cursor: pointer;display: initial;"><i class="arrow leftArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></div>
+	<div id="<?=$quarters['now']['num']==1?1:($quarters['now']['num']-1)?>" onclick="quar_loader(this)" class="arrow-btn" style="cursor: pointer;display: initial;"><i class="arrow leftArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></div>
 	<span class="quarter-name"><b><?=isset($_REQUEST['QUAR'])?'Выбранная':'Текущая'?><span class="text-red"> четверть №<?=$quarters['now']['num']?></span> с <?=$quarters['now']['s']?> по <?=$quarters['now']['f']?></b></span>
-	<div id="<?=$quarterNum==4?4:($quarterNum+1)?>" onclick="quar_loader(this)" class="arrow-btn" style="cursor: pointer;display: initial;"><i class="arrow rightArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></div>
+	<div id="<?=$quarters['now']['num']==4?4:($quarters['now']['num']+1)?>" onclick="quar_loader(this)" class="arrow-btn" style="cursor: pointer;display: initial;"><i class="arrow rightArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></div>
 </div>
 	<div class="dropdown-divider"></div>
 <div class="row week-block">
@@ -101,7 +102,7 @@ $nexMonth_quarter=$nexMonth[1];
 		<?if($quarters['edit']):?>
 			<button class="btn btn-danger save-btn" form="journalList" <?=$quarters['edit']?'':'disabled'?>>Сохранить</button>
 		<?else:?>
-			<button class="btn btn-danger" onclick="back_on_week()">Вернуться на сегодня</button>
+			<button class="btn btn-danger" onclick="back_on_week()" <?=$endOfYear?'disabled':''?>><?=$endOfYear?'Год закончился':'Вернуться на сегодня'?></button>
         <?endif?>
 	</div>
 	<div class="col-md center">

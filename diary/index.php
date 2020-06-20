@@ -1,7 +1,8 @@
 <?
 define('ROOT', '../');
 session_start();
-$title = 'Дневник ученика';
+$title  = 'Дневник ученика';
+$page = 'Дневник';
 require(ROOT."header.php");
 $arGroups = $_SESSION['user']['groups'];
 if (!in_array(3,$arGroups)):?>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 define('ROOT','');
+$page = 'На главную';
 $title = 'Главная';
 $users = [
     'admin' => [
