@@ -59,7 +59,7 @@ $res = $db->query($q);
 		});
 	}
 	function loadingShow(elem) {
-		let text="<div id='loading' style='text-align: center;'><img src='<?=ROOT?>/assets/loading.gif' width='200px'><h2>Пожалуйста, подождите немного</h2></div>";
+		let text="<div id='loading' style='text-align: center;'><img src='<?=ROOT?>/assets/loadingNew.gif' width='200px'><h2>Пожалуйста, подождите немного</h2></div>";
 		elem.html('');
 		elem.append(text);
 		elem.show();

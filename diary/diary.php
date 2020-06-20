@@ -157,7 +157,7 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
     </div>
     <?else:?>
     <div class="center">
-        <img src="../assets/loading.gif" width="150px">
+        <img src="../assets/loadingNew.gif" width="150px">
         <h3>Нет оценок на неделе</h3></br>
     </div>
     <?endif;?>
