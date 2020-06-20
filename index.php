@@ -32,10 +32,7 @@ $users = [
 if (isset($_REQUEST['user'])) $_SESSION['user'] = $users[$_REQUEST['user']];
 else  $_SESSION['user'] = $users['admin'];
 require ("header.php");
-echo "<pre>";
-echo (" Текущий пользователь: {$_SESSION['user']['name']}\n id: {$_SESSION['user']['id']}\n groups: ".implode(',',$_SESSION['user']['groups']));
-echo "</pre>";
-
+echo (" Текущий пользователь: {$_SESSION['user']['name']}</br> id: {$_SESSION['user']['id']}</br>  groups: ".implode(',',$_SESSION['user']['groups']));
 if (isset($_REQUEST['reinit'])) {
     $db->reinitDb();
 }

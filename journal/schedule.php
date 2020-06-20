@@ -9,8 +9,8 @@ else {
     $class=$_REQUEST['id'];
     $className=$db->query('select name from subjects where id='.$class)[0]['name'];
 }
-if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE'];
-if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR'];
+if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE']; else $pageNum=1;
+if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR']; else $quarterNum=1;
 $userGr=$_SESSION['user']['groups'];
 $section=getCurrentSection();
 $quarters=getQuarters($quarterNum);
@@ -87,14 +87,11 @@ $nexMonth_week=$nexMonth[0];
 $nexMonth_quarter=$nexMonth[1];
 ?>
 <div class="row center headText" >
-	<button class="btn btn-primary quarter-btn" onclick="quar_loader(this)"
-			id="<?=$quarterNum==1?1:($quarterNum-1)?>">
-		<i class="arrow leftArrow"></i> четверть</button>
+	<div id="<?=$quarterNum==1?1:($quarterNum-1)?>" onclick="quar_loader(this)" class="arrow-btn" style="cursor: pointer;display: initial;"><i class="arrow leftArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></div>
 	<span class="quarter-name"><b><?=isset($_REQUEST['QUAR'])?'Выбранная':'Текущая'?><span class="text-red"> четверть №<?=$quarters['now']['num']?></span> с <?=$quarters['now']['s']?> по <?=$quarters['now']['f']?></b></span>
-	<button class="btn btn-primary quarter-btn" onclick="quar_loader(this)"
-			id="<?=$quarterNum==4?4:($quarterNum+1)?>">
-		четверть <i class="arrow rightArrow"></i></button>
+	<div id="<?=$quarterNum==4?4:($quarterNum+1)?>" onclick="quar_loader(this)" class="arrow-btn" style="cursor: pointer;display: initial;"><i class="arrow rightArrow" style="border: solid red;border-width: 0 3px 3px 0;"></i></div>
 </div>
+	<div class="dropdown-divider"></div>
 <div class="row week-block">
 	<div class="col-md center calendarTextLeft">
 		</br></br>
@@ -143,6 +140,7 @@ $nexMonth_quarter=$nexMonth[1];
 	</div>
 </div>
 </br>
+	<div class="dropdown-divider"></div>
 <div class="row text-red"> * кликните на день, а потом на список сокращений, чтобы добавить оценку.</div>
 <div class="row scroll shadow" id="mouseScrolling">
     <form method="post" class="shedForm" id="journalList">

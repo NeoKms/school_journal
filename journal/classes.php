@@ -26,13 +26,15 @@ $res = $db->query($q);
 <a class='btn noline btn-outline-success' href="<?=ROOT?>journal/create_xls.php?type=3&classId=<?=$_REQUEST['id']?>" role="button">3 четв.</a>
 <a class='btn noline btn-outline-success' href="<?=ROOT?>journal/create_xls.php?type=4&classId=<?=$_REQUEST['id']?>" role="button">4 четв.</a>
 <a class='btn noline btn-outline-danger' href="<?=ROOT?>journal/create_xls.php?type=year&classId=<?=$_REQUEST['id']?>" role="button">За год</a>
-<h2>Перечень предметов:</h2>
+<div class="dropdown-divider"></div>
+<h5>Перечень предметов:</h5>
 <div class="classes-btn">
 <?foreach ($res as $obj){
     echo "<button class='btn classes btn-info' id='{$obj['id']}'>{$obj['name']}</button>";
 }
 ?>
 </div>
+<div class="dropdown-divider"></div>
 <script>
 	$(".classes-btn button").each(function( index ) {
 		let elem=$( this );

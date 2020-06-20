@@ -7,7 +7,7 @@ $arGroups = $_SESSION['user']['groups'];
 if (!in_array(3,$arGroups)):?>
     <div class="center"
 		<h1>Вы не ученик. Увы :(</h1>
-			<img style='box-shadow: 0 0 30px rgba(0,0,0,0.5); margin-top: 20px' src='<?=ROOT?>assets/giphy.gif' width="700">
+			<img style='box-shadow: 0 0 30px rgba(0,0,0,0.5); margin-top: 50px' src='<?=ROOT?>assets/giphy.gif' width="500">
 	</div>
 <?
 die();
