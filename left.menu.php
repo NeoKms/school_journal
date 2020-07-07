@@ -111,10 +111,6 @@ if (!empty($arResult)) {
 function getSections($id)
 {
     $sect=[];
-//    $obSection = CIBlockSection::GetTreeList(['IBLOCK_ID' => $id]);
-//    while ($arResult = $obSection->GetNext()) {
-//        $sect[$arResult['ID']]= $arResult['NAME'];
-//    }
     return $sect;
 }
 ?>
