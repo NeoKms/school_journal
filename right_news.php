@@ -4,6 +4,5 @@
     <div class="line"> </div>
     <li><p class="date">14 апреля 2020</p><a href="">Медведь не медведь</a></li>
     <div class="line"> </div>
-    <li><p class="date">2 декабря 2019</p><a href="/school/index.php?reinit=1">Что-то произошло сегодня</a></li>
-	</br>
+    <li><p class="date">2 декабря 2019</p><a href="/school/index.php?reinit=1">Что-то произошло сегодня</a></li></br>
 </ul>
