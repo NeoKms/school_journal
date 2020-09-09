@@ -572,7 +572,7 @@ class PHPExcel_Shared_String
 	public static function Substring($pValue = '', $pStart = 0, $pLength = 0)
 	{
 		if (self::getIsMbstringEnabled()) {
-			if ($_GET["TEST"]) {
+			if (isset($_GET["TEST"]) && $_GET["TEST"]) {
 				if (!is_string($pValue)) {
 					var_dump($pValue);
 				}
