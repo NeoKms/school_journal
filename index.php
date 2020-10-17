@@ -1,6 +1,7 @@
 <?php
 session_start();
 define('ROOT','');
+require_once(ROOT . 'classes/sentry.php');
 $page = 'На главную';
 $title = 'Главная';
 $users = [

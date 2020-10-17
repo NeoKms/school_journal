@@ -1,6 +1,7 @@
 <?php
 define('ROOT', '../');
-require (ROOT.'database/database.php');
+require_once(ROOT . 'classes/sentry.php');
+require_once (ROOT.'database/database.php');
 session_start();
 if (empty($_REQUEST['id'])) die('неверный ид ученика');
 else {

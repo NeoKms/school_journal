@@ -10,6 +10,7 @@ class database
         try {
         $this->db = new PDO('sqlite:'.ROOT.'database/school.sqlite');
         } catch (PDOException $e){
+            if (SENTRY_EXISTS) Sentry\captureException($e);
             die($e->getMessage());
         }
     }
@@ -123,6 +124,7 @@ class database
             if ($this->db->errorInfo()[0]!='00000')
                 var_dump($this->db->errorInfo());
         } catch (PDOException $e){
+            if (SENTRY_EXISTS) Sentry\captureException($e);
             die($e->getMessage());
         }
     }
@@ -133,6 +135,7 @@ class database
             if ($res===false) throw new PDOException('ошибка запроса');
             $res = $res->fetchAll();
         } catch (PDOException $e){
+            if (SENTRY_EXISTS) Sentry\captureException($e);
             var_dump($this->db->errorInfo());
             die($e->getMessage());
         }
