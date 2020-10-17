@@ -1,8 +1,8 @@
 <?php
 define('ROOT', '../');
 session_start();
-require_once (ROOT.'database/database.php');
 require_once(ROOT . 'classes/sentry.php');
+require_once (ROOT.'database/database.php');
 $db = database::getInstance();
 if (empty($_REQUEST['type'])) die('не выбран период'); else $type=$_REQUEST['type'];
 if (empty($_REQUEST['classId'])) die('не выбран класс'); else $studClass=$_REQUEST['classId'];
