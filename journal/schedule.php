@@ -251,12 +251,12 @@ $nexMonth_quarter=$nexMonth[1];
     </form>
 </div>
 
-<div class="row page_navigator center">
-    <span> Чет. №<?=$quarters['now']['num']?>, неделя <?=$pageNum?>/<?=$colWeek?></span>
-    <?php for($i=0;$i<$colWeek;$i++):?>
-    <a id="<?=($i+1)?>" class="<?=$pageNum==($i+1)?'active':''?>" onclick="page_loader(this)"><?=($i+1)?></a>
-    <?php endfor;?>
-</div>
+<!--<div class="row page_navigator center">-->
+<!--    <span> Чет. №--><?//=$quarters['now']['num']?><!--, неделя --><?//=$pageNum?><!--/--><?//=$colWeek?><!--</span>-->
+<!--    --><?php //for($i=0;$i<$colWeek;$i++):?>
+<!--    <a id="--><?//=($i+1)?><!--" class="--><?//=$pageNum==($i+1)?'active':''?><!--" onclick="page_loader(this)">--><?//=($i+1)?><!--</a>-->
+<!--    --><?php //endfor;?>
+<!--</div>-->
 <script>
 	window.masseditMarks='<?=(string)$quarters['edit']?>';
 	var colRows=<?=count($students)?>;
