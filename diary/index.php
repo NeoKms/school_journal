@@ -1,5 +1,6 @@
 <?
 define('ROOT', '../');
+require_once(ROOT . 'classes/sentry.php');
 session_start();
 $title  = 'Дневник ученика';
 $page = 'Дневник';

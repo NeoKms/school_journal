@@ -1,17 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
 <?php
-//sentry
-if (file_exists($_SERVER['DOCUMENT_ROOT'].'/school/env.php')) {
-    include_once($_SERVER['DOCUMENT_ROOT'] . '/school/env.php');
-    include_once(realpath('../../../') . '/lib/sentry/vendor/autoload.php');
-    if (function_exists('Sentry\init')) {
-        Sentry\init(['dsn' => $sentryDsn]);
-        define('SENTRY_EXISTS',true);
-    } else {
-        define('SENTRY_EXISTS',false);
-	}
-}
 $user = $_SESSION['user'];
 $is_student = in_array(3, $user['groups']);
 if (!isset($page)) $page='';

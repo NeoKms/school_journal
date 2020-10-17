@@ -1,7 +1,8 @@
 <?php
 session_start();
 define('ROOT', '../');
-require (ROOT.'database/database.php');
+require_once (ROOT.'database/database.php');
+require_once(ROOT . 'classes/sentry.php');
 $db=database::getInstance();
 
 if (empty($_REQUEST['id'])) die('не верное занятие');
