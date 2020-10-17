@@ -5,8 +5,7 @@
 if (file_exists($_SERVER['DOCUMENT_ROOT'].'/school/env.php')) {
     include_once($_SERVER['DOCUMENT_ROOT'] . '/school/env.php');
     include_once(realpath('../../../') . '/lib/sentry/vendor/autoload.php');
-    $sentry = Sentry\init(['dsn' => $sentryDsn]);
-    var_dump($sentry);
+    Sentry\init(['dsn' => $sentryDsn]);
 }
 $user = $_SESSION['user'];
 $is_student = in_array(3, $user['groups']);
