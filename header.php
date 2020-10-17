@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
 <?php
+include_once('/home/pi/pyserver/shop/jrgreez.ru/school/env.php');
 //sentry
 include_once('/home/pi/pyserver/shop/lib/sentry/vendor/autoload.php');
-Sentry\init(['dsn' => 'https://4917e080209442f3be3d216e9939eba0@o460158.ingest.sentry.io/5467798']);
+Sentry\init(['dsn' => $sentryDsn]);
 //
 $user = $_SESSION['user'];
 $is_student = in_array(3, $user['groups']);
