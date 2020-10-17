@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <?php
-include_once('/home/pi/pyserver/shop/jrgreez.ru/school/env.php');
 //sentry
-include_once('/home/pi/pyserver/shop/lib/sentry/vendor/autoload.php');
-Sentry\init(['dsn' => $sentryDsn]);
-//
+if (file_exists($_SERVER['DOCUMENT_ROOT'].'/school/env.php')) {
+    include_once($_SERVER['DOCUMENT_ROOT'] . '/school/env.php');
+    include_once(realpath('../../../') . '/lib/sentry/vendor/autoload.php');
+    $sentry = Sentry\init(['dsn' => $sentryDsn]);
+    var_dump($sentry);
+}
 $user = $_SESSION['user'];
 $is_student = in_array(3, $user['groups']);
 if (!isset($page)) $page='';
