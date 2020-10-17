@@ -32,8 +32,6 @@ if (mb_strpos($_SERVER['REQUEST_URI'], 'journal')) {
         ['name' => 'КАРТА САЙТА'],
     ];
 }
-?>
-<?php
 if (!empty($arResult)) {
     if (mb_strpos($_SERVER['REQUEST_URI'], 'journal')) {?>
 	<div class="left_menu">
@@ -77,16 +75,13 @@ if (!empty($arResult)) {
 				});
 			}
 		</script>
-        <?php
-    }
-    else {
-    	?>
+        <?php } else { ?>
 <div class="left_menu">
 	<ul>
-		<?
+		<?php
         foreach ($arResult as $arItem) {?>
 			<li><a><?=$arItem["name"]?></a></li>
-        <?}?>
+        <?php }?>
 	</ul>
 </div>
 		<script>
@@ -97,7 +92,6 @@ if (!empty($arResult)) {
 					elem.children("a").addClass('active');
 				});
 			});
-
 			function unactive() {
 				$(".left_menu ul li").each(function (index) {
 					let elem = $(this).children("a");
@@ -105,7 +99,7 @@ if (!empty($arResult)) {
 				});
 			}
 		</script>
-		<?
+		<?php
 	}
 }
 function getSections($id)
@@ -114,4 +108,3 @@ function getSections($id)
     return $sect;
 }
 ?>
-

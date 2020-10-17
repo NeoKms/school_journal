@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
 <?php
+//sentry
+include_once('/home/pi/pyserver/shop/lib/sentry/vendor/autoload.php');
+Sentry\init(['dsn' => 'https://4917e080209442f3be3d216e9939eba0@o460158.ingest.sentry.io/5467798']);
+//
 $user = $_SESSION['user'];
 $is_student = in_array(3, $user['groups']);
 if (!isset($page)) $page='';
@@ -14,13 +18,28 @@ if (!isset($page)) $page='';
     <script src="<?=ROOT?>js/jquery-3.5.1.min.js"></script>
 </head>
 <body>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript" >
+   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+   m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+   ym(65367178, "init", {
+        clickmap:true,
+        trackLinks:true,
+        accurateTrackBounce:true,
+        webvisor:true
+   });
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/65367178" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
 <div class="header_middle" hidden>
     <div class="logo">
 <!--        <a href=""><img src="--><?//=ROOT?><!--assets/баннер.png" width="980px" height="222px"></a>-->
     </div>
 </div>
 <nav class="navbar navbar-expand-lg navbar-light bg-light header_menu">
-	<a class="navbar-brand" href="index.php"><img src="<?=ROOT?>/assets/saints.png" alt="logo" width="100"></a>
+	<a class="navbar-brand" href="index.php"><img src="<?=ROOT?>assets/saints.png" alt="logo" width="100"></a>
 	<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
 		<span class="navbar-toggler-icon"></span>
 	</button>
@@ -59,6 +78,10 @@ if (!isset($page)) $page='';
 			<li class="nav-item">
 				<a class="nav-link disabled" id="">Аккредитация</a>
 			</li>
+			<li class="nav-item">
+				<a class="nav-link" href="/">Основной сайт</a>
+			</li>
+
 		</ul>
 	</div>
 </nav>
