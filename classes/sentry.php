@@ -8,4 +8,6 @@ if (file_exists(ROOT . 'env.php')) {
     } else {
         define('SENTRY_EXISTS',false);
     }
+} else {
+	define('SENTRY_EXISTS',false);
 }
