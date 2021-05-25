@@ -24,11 +24,11 @@ if ($allQuar) {
 $db = database::getInstance();
 $q='select journal.id, journal.date_int, journal.name,journal.teacher,journal.subject,journal.date,journal.theme,journal.comment, subjects.name as subj_name
 		from journal inner join subjects on journal.subject = subjects.id 
-		where journal.group_id='.$section.' 
-		and journal.date_int>='.strtotime($currentWeek[0]).' 
-		and journal.date_int<='.strtotime($currentWeek[1]).'
+		where journal.group_id=?
+		and journal.date_int>=? 
+		and journal.date_int<=?
 		order by date_int asc';
-$res = $db->query($q);
+$res = $db->querySafe($q,[$section,strtotime($currentWeek[0]),strtotime($currentWeek[1])]);
 $classesHeads=[];
 $classesMarks=[];
 $subjectIDS=[];
@@ -60,9 +60,10 @@ $journalIDS=array_unique($journalIDS);
 $existMarksIds=[];
 $q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
     ' from marks inner join type_marks on marks.type_id = type_marks.id '.
-    "where marks.subject_id in ('".implode("','",$subjectIDS)."') and marks.journal_id in ('".implode("','",$journalIDS)."')".
-    " and marks.student_id=".$studentID." order by marks.mark asc";
-$res = $db->query($q);
+    "where marks.subject_id in (".database::fqm($subjectIDS).") and marks.journal_id in (".database::fqm($journalIDS).")".
+    " and marks.student_id=? order by marks.mark asc";
+$param = array_merge($subjectIDS,$journalIDS,[$studentID]);
+$res = $db->querySafe($q,$param);
 foreach ($res as $obj){
     $studID=$obj['student_id'];
     $journalID=$obj['journal_id'];
@@ -81,15 +82,11 @@ $delSubjects=array_diff($subjectIDS,$existMarksIds);
 foreach ($delSubjects as $oneId){
 	unset($classesMarks[$oneId]);
 }
-//echo "<pre>";
-//print_r($classesMarks);
-//echo "</pre>";
-//exit;
-$countClassesInQuarter=$db->query("select count(*) from journal 
-									where group_id={$section} 
-									and subject={$classID} 
-									and date_int>=".strtotime($quarters['now']['s'])."
-									and date_int<=".strtotime($quarters['now']['f']))[0]['count(*)'];
+$countClassesInQuarter=$db->querySafe("select count(*) from journal 
+									where group_id=? 
+									and subject=? 
+									and date_int>=?
+									and date_int<=?",[$section,$classID,strtotime($quarters['now']['s']),strtotime($quarters['now']['f'])])[0]['count(*)'];
 $colWeek=(int)round($countClassesInQuarter/5,PHP_ROUND_HALF_DOWN);
 if (($countClassesInQuarter%5)!==0)$colWeek++;
 ?>
@@ -186,15 +183,7 @@ if (($countClassesInQuarter%5)!==0)$colWeek++;
 function getCurrentSection($studentID){
     return database::getInstance()->query('select classes_id from students_groups where student_id='.$studentID)[0]['classes_id'];
 }
-function getIBlockSections($id)
-{
-    $sect=[];
-    $obSection = CIBlockSection::GetTreeList(['IBLOCK_ID' => $id]);
-    while ($arResult = $obSection->GetNext()) {
-        $sect[$arResult['ID']]= $arResult['NAME'];
-    }
-    return $sect;
-}
+
 function getQuarters(&$quarterNum){
     $req=database::getInstance()->query("select * from quarters where now='Y' order by year asc")[0];
     $format='d.m.Y';

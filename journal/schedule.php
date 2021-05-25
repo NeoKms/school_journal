@@ -8,7 +8,7 @@ $db=database::getInstance();
 if (empty($_REQUEST['id'])) die('не верное занятие');
 else {
     $class=$_REQUEST['id'];
-    $className=$db->query('select name from subjects where id='.$class)[0]['name'];
+    $className=$db->querySafe('select name from subjects where id=?',[$class])[0]['name'];
 }
 if (isset($_REQUEST['PAGE'])) $pageNum=$_REQUEST['PAGE'];
 if (isset($_REQUEST['QUAR'])) $quarterNum=$_REQUEST['QUAR'];
@@ -17,7 +17,7 @@ $section=getCurrentSection();
 $quarters=getQuarters($quarterNum);
 $endOfYear = strtotime($quarters[3]['f'])<time();
 $currentWeek=getWeek($quarters,$pageNum);
-$quarters['edit']=strtotime($currentWeek[0])<=time() && strtotime($currentWeek[1])>=time();
+$quarters['edit']=(strtotime($currentWeek[0])-604800)<=time() && (strtotime($currentWeek[1].' 23:59:59')+604800)>=time();//604800
 if (in_array(1,$userGr)) $quarters['edit']=true;
 $calendar=getCalendarData($quarters['now'],$currentWeek);
 $nowCalendar=$calendar[1];
@@ -26,16 +26,20 @@ $students=getStudents();
 if (checkExist($quarters,$section,$class)<=0) {
     addInQuarter($quarters,$section,$class);
 }
-$q = "from journal where group_id={$section} and subject={$class}";
-$date = " and date_int>=".strtotime($quarters['now']['s'])." and date_int<=".strtotime($quarters['now']['f']);
+$q = "from journal where group_id=? and subject=?";
+$params = [$section,$class];
+$date = " and date_int>=? and date_int<=?";
+$datesFQ = [strtotime($quarters['now']['s']),strtotime($quarters['now']['f'])];
 if (!in_array(1,$userGr) && !in_array(12,$userGr)){//не админ и без доступа к кл.журналу
-    $q.=' and teacher='.$_SESSION['user']['id'];
+    $q.=' and teacher=?';
+    $params[] = $_SESSION['user']['id'];
 }
-$countClassesInQuarter=$db->query("select count(*) ".$q.$date)[0]['count(*)'];
+$countClassesInQuarter=$db->querySafe("select count(*) ".$q.$date,array_merge($params,$datesFQ))[0]['count(*)'];
 $colWeek=(int)round($countClassesInQuarter/5,PHP_ROUND_HALF_DOWN);
 if (($countClassesInQuarter%5)!==0)$colWeek++;
-$date2 = " and date_int>=".strtotime($currentWeek[0])." and date_int<=".strtotime($currentWeek[1]);
-$res=$db->query("select * ".$q.$date2." order by date_int asc");
+$date2 = " and date_int>=? and date_int<=?";
+$datesFQ2 = [strtotime($currentWeek[0]),strtotime($currentWeek[1])];
+$res=$db->querySafe("select * ".$q.$date2." order by date_int asc",array_merge($params,$datesFQ2));
 $journalHeads=[];
 $classesBody=[];
 $journalIds=[];
@@ -56,9 +60,11 @@ foreach ($res as $obj){
 }
 $q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
     ' from marks inner join type_marks on marks.type_id = type_marks.id '.
-    'where subject_id='.$_REQUEST['id']." and journal_id in ('".implode("','",$journalIds)."')".
-    "and student_id in ('".implode("','",array_keys($students))."') order by date_create asc";
-$req=$db->query($q);
+    'where subject_id=? and journal_id in ('.database::fqm($journalIds).')'.
+    'and student_id in ('.database::fqm(array_keys($students)).') order by date_create asc';
+$params = array_merge([$_REQUEST['id']],$journalIds,array_keys($students));
+$req=$db->querySafe($q,$params);
+
 foreach ($req as $obj){
     $studID=$obj['student_id'];
     if (!isset($classesMarks[$studID]))$classesMarks[$studID]=[];
@@ -250,13 +256,6 @@ $nexMonth_quarter=$nexMonth[1];
             </table>
     </form>
 </div>
-
-<!--<div class="row page_navigator center">-->
-<!--    <span> Чет. №--><?//=$quarters['now']['num']?><!--, неделя --><?//=$pageNum?><!--/--><?//=$colWeek?><!--</span>-->
-<!--    --><?php //for($i=0;$i<$colWeek;$i++):?>
-<!--    <a id="--><?//=($i+1)?><!--" class="--><?//=$pageNum==($i+1)?'active':''?><!--" onclick="page_loader(this)">--><?//=($i+1)?><!--</a>-->
-<!--    --><?php //endfor;?>
-<!--</div>-->
 <script>
 	window.masseditMarks='<?=(string)$quarters['edit']?>';
 	var colRows=<?=count($students)?>;
@@ -296,7 +295,6 @@ $nexMonth_quarter=$nexMonth[1];
 	}
 	$( "#journalList" ).submit(function( event ){
 		event.preventDefault();
-		var strData= $( "#journalList" ).serialize();
 		$.post( "<?=ROOT?>/journal/index.php", $( "#journalList" ).serialize() ,function( data ) {
 			if (data=='success'){
 				obnul();
@@ -308,23 +306,14 @@ $nexMonth_quarter=$nexMonth[1];
 </script>
 <?php
 function getCurrentSection(){
-    $section = database::getInstance()->query('SELECT group_id from subjects where id='.$_REQUEST['classes'])[0]['group_id'];
+    $section = database::getInstance()->querySafe('SELECT group_id from subjects where id=?',[$_REQUEST['classes']])[0]['group_id'];
     if ($section<0) die('ошибка раздела журнала');
     return $section;
-}
-function getIBlockSections($id)
-{
-    $sect=[];
-    $obSection = CIBlockSection::GetTreeList(['IBLOCK_ID' => $id]);
-    while ($arResult = $obSection->GetNext()) {
-        $sect[$arResult['ID']]= $arResult['NAME'];
-    }
-    return $sect;
 }
 function addInQuarter($quarters,$section,$class){
     $days=array_merge(getQuartersDays($quarters[0]),getQuartersDays($quarters[1]),getQuartersDays($quarters[2]),getQuartersDays($quarters[3]));
     $db = database::getInstance();
-    $ClassElem=$db->query('select name,teacher_id from subjects where id='.$class)[0];
+    $ClassElem=$db->querySafe('select name,teacher_id from subjects where id=?',[$class])[0];
     $nameClasses=$ClassElem['name'];
     foreach ($days as $oneDay){
         $PROP = Array(
@@ -337,13 +326,13 @@ function addInQuarter($quarters,$section,$class){
 			'theme'=>'',
 			'comment'=>'',
         );
-        $q="insert into journal (subject, group_id, date_int, date, teacher, name, theme, comment) values ('".implode("','",$PROP)."')";
-    	$db->query($q);
+        $q="insert into journal (subject, group_id, date_int, date, teacher, name, theme, comment) values (?,?,?,?,?,?,?,?)";
+    	$db->querySafe($q,array_values($PROP));
     }
 }
-function getStudents($allSection=false){
+function getStudents(){
 	//ToDo таблица юзер-студент-класс. взять студентов по классу из реквеста.
-	$res = database::getInstance()->query("select users.id, users.name from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id={$_REQUEST['classes']}");
+	$res = database::getInstance()->querySafe("select users.id, users.name from users inner join students_groups sg on users.id = sg.student_id where sg.classes_id=?",[$_REQUEST['classes']]);
 	$students=[];
     foreach ($res as $oneStud) {
         $students[$oneStud['id']]="{$oneStud['name']}";
@@ -400,7 +389,7 @@ function getQuarters(&$quarterNum){
     return $result;
 }
 function checkExist($quarters,$section,$id){
-    $res = database::getInstance()->query("select * from journal where date_int=".strtotime($quarters[0]['s']).' and group_id='.$section.' and subject='.$id);
+    $res = database::getInstance()->querySafe("select * from journal where date_int=? and group_id=? and subject=?",[strtotime($quarters[0]['s']),$section,$id]);
     return count($res);
 }
 function getQuartersDays($q,$calendar=false){
@@ -493,7 +482,7 @@ function getCalendarData($quarter,$week){
     $weekNum=0;
     $monthNum=-1;
     $ind=0;
-    $now=['m'=>'','Y'=>'','w'=>''];
+    $now=['m'=>$days[0]['m'],'Y'=>$days[0]['Y'],'w'=>1];
     $weekSdvigFlag=false;
     foreach ($days as $key=>$oneDay){
     	if ($monthNum!=$oneDay['m']){

@@ -63,14 +63,16 @@ $periodDates=$quarters[1];
 $quarters=$quarters[0];
 $q='select journal.id, journal.date_int, journal.name,journal.teacher,journal.subject,journal.date,journal.theme,journal.comment, subjects.name as subj_name
 		from journal inner join subjects on journal.subject = subjects.id 
-		where journal.group_id='.$section.' 
-		and journal.date_int>='.strtotime($quarters['now']['s']).' 
-		and journal.date_int<='.strtotime($quarters['now']['f']);
+		where journal.group_id=?
+		and journal.date_int>=?
+		and journal.date_int<=?';
+$params = [$section,strtotime($quarters['now']['s']),strtotime($quarters['now']['f'])];
 if (!in_array(1,$_SESSION['user']['groups'])){//не админ
-   $q.=' and teacher='.$_SESSION['user']['id'];
+   $q.=' and teacher=?';
+   $params[] = $_SESSION['user']['id'];
 }
 $q.=' order by date_int asc';
-$res = $db->query($q);
+$res = $db->querySafe($q,$params);
 $classesMarks=[];
 $subjectIDS=[];
 $studentsArray=getStudents($studClass);
@@ -95,19 +97,16 @@ foreach ($res as $obj){
 //теперь все оценки
 $q='select marks.subject_id,marks.journal_id,marks.type_id,marks.student_id,marks.id,marks.mark, type_marks.short'.
     ' from marks inner join type_marks on marks.type_id = type_marks.id '.
-    "where subject_id in ('".implode("','",$subjectIDS)."') and journal_id in ('".implode("','",$journalIDS)."')".
-    "and student_id in(".implode(',',array_keys($studentsArray)).") order by marks.mark asc";
-$res = $db->query($q);
+    "where subject_id in (".database::fqm($subjectIDS).") and journal_id in (".database::fqm($journalIDS).")".
+    "and student_id in (".database::fqm(array_keys($studentsArray)).") order by marks.mark asc";
+$params = array_merge($subjectIDS,$journalIDS,array_keys($studentsArray));
+$res = $db->querySafe($q, $params);
 foreach ($res as $obj){
     $studID=$obj['student_id'];
     $journalID=$obj['journal_id'];
     $subjectID=$obj['subject_id'];
     $classesMarks[$subjectID]['DATA'][$studID]['DATA'][$journalID]['DATA'][]=[$obj['mark'],$obj['short']];
 }
-//echo "<pre>";
-//print_r($classesMarks);
-//echo "</pre>";
-//exit;
 $act_list=0;
 $col=1;
 foreach ($classesMarks as $oneClass){
@@ -125,10 +124,10 @@ foreach ($classesMarks as $oneClass){
     $themeRow=null;$commentRow=null;;$flwas=true;
     foreach ($oneClass['DATA'] as $oneStudent){
         if ($themeRow==null){
-            $themeRow=$row;$row++;////////////////////////////////////////////////////////////////////////////////////////////
-            $commentRow=$row;$row++;//////////////////////////////////////////////////////////////////////////////////////////
-            $excelList->setCellValue($arCol[1].$themeRow,'Тема урока');///////////////////////////////////
-            $excelList->setCellValue($arCol[1].$commentRow,'Комментарий');////////////////////////////////
+            $themeRow=$row;$row++;
+            $commentRow=$row;$row++;
+            $excelList->setCellValue($arCol[1].$themeRow,'Тема урока');
+            $excelList->setCellValue($arCol[1].$commentRow,'Комментарий');
         }
         $excelList->setCellValue($arCol[$col].$row,$oneStudent['NAME']);
         foreach ($oneStudent['DATA'] as $date=>$oneMarksDate){
@@ -141,23 +140,22 @@ foreach ($classesMarks as $oneClass){
             }
             if (!$markWas) continue;
             $excelList->setCellValue($arCol[$col].$row,$markList);
-            $excelList->setCellValue($arCol[$col].$themeRow,$oneMarksDate['theme']);//////////////////////////////////////
-            $excelList->setCellValue($arCol[$col].$commentRow,$oneMarksDate['comment']);//////////////////////////////////
-            if (!empty($oneMarksDate['theme']) || !empty($oneMarksDate['comment'])) $excelList->getColumnDimension($arCol[$col])->setWidth(15);///////////////////////////////////////////////
+            $excelList->setCellValue($arCol[$col].$themeRow,$oneMarksDate['theme']);
+            $excelList->setCellValue($arCol[$col].$commentRow,$oneMarksDate['comment']);
+            if (!empty($oneMarksDate['theme']) || !empty($oneMarksDate['comment'])) $excelList->getColumnDimension($arCol[$col])->setWidth(15);
         }
         $excelList->getStyle($arCol[1].$row.':'.$arCol[$col].$row)->applyFromArray($arrStyle);
         if ($flwas) {
-            $excelList->getStyle($arCol[2] . $themeRow . ':' . $arCol[$col] . $themeRow)->applyFromArray($arrStyle);////////////////
-            $excelList->getStyle($arCol[2] . $commentRow . ':' . $arCol[$col] . $commentRow)->applyFromArray($arrStyle);////////////
-            $excelList->getStyle($arCol[1] . $themeRow)->applyFromArray($arrStyleTop);////////////////////////////////////////////////
-            $excelList->getStyle($arCol[1] . $commentRow)->applyFromArray($arrStyleTop);//////////////////////////////////////////////
+            $excelList->getStyle($arCol[2] . $themeRow . ':' . $arCol[$col] . $themeRow)->applyFromArray($arrStyle);
+            $excelList->getStyle($arCol[2] . $commentRow . ':' . $arCol[$col] . $commentRow)->applyFromArray($arrStyle);
+            $excelList->getStyle($arCol[1] . $themeRow)->applyFromArray($arrStyleTop);
+            $excelList->getStyle($arCol[1] . $commentRow)->applyFromArray($arrStyleTop);
             $flwas = false;
         }
         $col=1;
         $row++;
     }
     $row++;
-//    $excelList->setCellValue($arCol[1].$row,'Оценки: [д/з]/[р/у]/[с/р]/[т.д]');
     $act_list++;
 }
 $objPHPExcel->setActiveSheetIndex(0);

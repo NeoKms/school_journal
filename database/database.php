@@ -141,4 +141,25 @@ class database
         }
         return $res;
     }
+    public function querySafe($q,$params)
+    {
+        try {
+            $prepare = $this->db->prepare($q);
+            $res = $prepare->execute($params);
+            if ($res===false) throw new PDOException('ошибка запроса');
+            $rows = [];
+            foreach ($prepare as $row) {
+                $rows[] = $row;
+            }
+        } catch (PDOException $e){
+            if (SENTRY_EXISTS) Sentry\captureException($e);
+            var_dump($this->db->errorInfo());
+            die($e->getMessage());
+        }
+        return $rows;
+    }
+    static function fqm($array)
+    {
+        return implode(',',array_fill(0,count($array),'?'));
+    }
 }

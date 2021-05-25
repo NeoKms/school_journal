@@ -12,14 +12,16 @@ if ($section<0) die('ошибка поиска класса');
 $idUser=$_SESSION['user']['id'];
 $userGr=$_SESSION['user']['groups'];
 
-$q="select id, name from subjects where active=1 and group_id={$section}";
+$q="select id, name from subjects where active=1 and group_id=?";
+$params = [$section];
 if (in_array(1,$userGr) || in_array(12,$userGr)){//админ или доступ к кл.журналу
     $is_admin=true;
     $q.=" and teacher_id IS NOT NULL";
 } else{
-	$q.=" and teacher_id={$idUser}";
+	$q.=" and teacher_id=?";
+    $params[] = $idUser;
 }
-$res = $db->query($q);
+$res = $db->querySafe($q,$params);
 ?>
 <b>Загрузка журнала успеваемости:</b>
 <a class='btn noline btn-outline-success' href="<?=ROOT?>journal/create_xls.php?type=1&classId=<?=$_REQUEST['id']?>" role="button">1 четв.</a>
