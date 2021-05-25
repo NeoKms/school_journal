@@ -3,12 +3,12 @@ if (mb_strpos($_SERVER['REQUEST_URI'], 'journal')) {
     $idUser = $_SESSION['user']['id'];
     $is_admin = in_array(1,$_SESSION['user']['groups']);
     if (!$is_admin) {
-    	$groups=$db->query('SELECT group_id from subjects where teacher_id='.$_SESSION['user']['id'].' GROUP by group_id');
+        $groups=$db->querySafe('SELECT group_id from subjects where teacher_id=? GROUP by group_id',[$_SESSION['user']['id']]);
     	$groupsIds = [];
     	foreach ($groups as $oneGroup){
             $groupsIds[] = $oneGroup['group_id'];
 		}
-        $arResult=$db->query("SELECT * from groups where group_id in (".implode(",",$groupsIds).") ORDER BY name ASC");
+        $arResult=$db->querySafe("SELECT * from groups where group_id in (?) ORDER BY name ASC",[implode(",",$groupsIds)]);
     } else {
         $arResult=$db->query('SELECT * from groups ORDER BY name ASC');
     }
@@ -67,13 +67,6 @@ if (!empty($arResult)) {
 					$("#journal").hide();
 				});
 			});
-
-			function unactive() {
-				$(".left_menu ul li").each(function (index) {
-					let elem = $(this).children("a");
-					elem.removeClass('active');
-				});
-			}
 		</script>
         <?php } else { ?>
 <div class="left_menu">
@@ -92,15 +85,17 @@ if (!empty($arResult)) {
 					elem.children("a").addClass('active');
 				});
 			});
-			function unactive() {
-				$(".left_menu ul li").each(function (index) {
-					let elem = $(this).children("a");
-					elem.removeClass('active');
-				});
-			}
-		</script>
-		<?php
-	}
+        </script>
+		<?php } ?>
+<script>
+    function unactive() {
+        $(".left_menu ul li").each(function (index) {
+            let elem = $(this).children("a");
+            elem.removeClass('active');
+        });
+    }
+</script>
+<?php
 }
 function getSections($id)
 {

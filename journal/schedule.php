@@ -17,7 +17,7 @@ $section=getCurrentSection();
 $quarters=getQuarters($quarterNum);
 $endOfYear = strtotime($quarters[3]['f'])<time();
 $currentWeek=getWeek($quarters,$pageNum);
-$quarters['edit']=strtotime($currentWeek[0])<=time() && strtotime($currentWeek[1])>=time();
+$quarters['edit']=(strtotime($currentWeek[0])-604800)<=time() && (strtotime($currentWeek[1].' 23:59:59')+604800)>=time();//604800
 if (in_array(1,$userGr)) $quarters['edit']=true;
 $calendar=getCalendarData($quarters['now'],$currentWeek);
 $nowCalendar=$calendar[1];
