@@ -21,15 +21,17 @@ if (isset($_REQUEST['id_quarter'])){
 		);
 		if ($quar==$_REQUEST['NOW'])$PROP['now']='Y';
 		$q = "update quarters set ";
+		$params = [];
 		foreach ($PROP as $name=>$val) {
+            $params[] = $val;
 			if ($name=='now') {
-                $q.="$name='{$val}'";
+                $q.="$name=?";
 			} else {
-                $q .= "$name='{$val}',";
+                $q .= "$name=?,";
             }
 		}
 		$q.=" where id=".$quar;
-        $res = database::getInstance()->query($q);
+        $res = database::getInstance()->querySafe($q,$params);
     }
 }
 if (isset($_REQUEST['marks'])){
@@ -44,18 +46,24 @@ if (isset($_REQUEST['marks'])){
 	}
     foreach ($daysArr as $id => $dayData){
         $q = "update journal set ";
+        $params = [];
         if ($dayData['theme']!=''&&$dayData['comment']!=''){
-            $q.="theme = '{$dayData['theme']}'";
-            $q.=", comment = '{$dayData['comment']}'";
+            $q.="theme = ?";
+            $q.=", comment = ?";
+            $params[] = $dayData['theme'];
+            $params[] = $dayData['comment'];
 		} elseif ($dayData['theme']!=''){
     		$q.="theme = '{$dayData['theme']}'";
+            $params[] = $dayData['theme'];
 		} elseif ($dayData['comment']!=''){
-    		$q.="comment = '{$dayData['comment']}'";
+    		$q.="comment = ?";
+            $params[] = $dayData['comment'];
 		} else {
         	continue;
 		}
-    	$q.=" where id=".$id;
-        $db->query($q);
+    	$q.=" where id=?";
+        $params[] = $id;
+        $db->querySafe($q,$params);
 	}
     foreach ($marksArr as $journalId=>$ArrStud){
         foreach ($ArrStud as $studID=>$marks){
@@ -69,11 +77,12 @@ if (isset($_REQUEST['marks'])){
 					'date_create'=>time(),
                 );
                 if ($id>0){
-                	$q = "update marks set mark = '{$value['mark']}' where id=".$id;
-                	$db->query($q);
+                	$q = "update marks set mark = ? where id=?";
+                	$db->querySafe($q,[$value['mark'],$id]);
 				} else {
-                    $q="insert into marks (".implode(",",array_keys($PROP)).") values ('".implode("','",$PROP)."')";
-                    $db->query($q);
+                    $props = array_values($PROP);
+                    $q="insert into marks (mark,student_id,type_id,journal_id,subject_id,date_create) values (?,?,?,?,?,?)";
+                    $db->querySafe($q,$props);
 				}
             }
 		}

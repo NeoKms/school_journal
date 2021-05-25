@@ -5,12 +5,12 @@ require_once(ROOT . 'classes/sentry.php');
 require_once (ROOT.'database/database.php');
 $db=database::getInstance();
 $year=(int)$_REQUEST['year'];
-$q='select id from quarters where year='.$year.' order by year desc';
-$next = $db->query($q);
+$q='select id from quarters where year=? order by year desc';
+$next = $db->querySafe($q,[$year]);
 $nextYear=$year+1;
 if (empty($next)) {
-	$q = "insert into quarters (name, now, year, start1, finish1, start2, finish2, start3, finish3, start4, finish4) values ('{$year}-{$nextYear}','N','{$year}',0,0,0,0,0,0,0,0)";
-	$res = $db->query($q);
+	$q = "insert into quarters (name, now, year, start1, finish1, start2, finish2, start3, finish3, start4, finish4) values (?,'N',?,0,0,0,0,0,0,0,0)";
+	$res = $db->querySafe($q,["{$year}-{$nextYear}",$year]);
 }
 $q = "select * from quarters order by year asc";
 $req=$db->query($q);

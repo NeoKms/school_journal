@@ -8,7 +8,7 @@ if (mb_strpos($_SERVER['REQUEST_URI'], 'journal')) {
     	foreach ($groups as $oneGroup){
             $groupsIds[] = $oneGroup['group_id'];
 		}
-        $arResult=$db->querySafe("SELECT * from groups where group_id in (?) ORDER BY name ASC",[implode(",",$groupsIds)]);
+        $arResult=$db->querySafe("SELECT * from groups where group_id in (".database::fqm($groupsIds).") ORDER BY name ASC",$groupsIds);
     } else {
         $arResult=$db->query('SELECT * from groups ORDER BY name ASC');
     }

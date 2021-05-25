@@ -158,4 +158,8 @@ class database
         }
         return $rows;
     }
+    static function fqm($array)
+    {
+        return implode(',',array_fill(0,count($array),'?'));
+    }
 }
