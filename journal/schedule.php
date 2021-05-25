@@ -482,7 +482,7 @@ function getCalendarData($quarter,$week){
     $weekNum=0;
     $monthNum=-1;
     $ind=0;
-    $now=['m'=>'','Y'=>'','w'=>''];
+    $now=['m'=>$days[0]['m'],'Y'=>$days[0]['Y'],'w'=>1];
     $weekSdvigFlag=false;
     foreach ($days as $key=>$oneDay){
     	if ($monthNum!=$oneDay['m']){
