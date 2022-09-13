@@ -259,3 +259,15 @@ i {
 	text-decoration: underline !important;
 	color: #006699 !important;
 }
+@media screen and (max-width: 992px) {
+	.navbar-collapse.show {
+		position: absolute;
+		right: 0px;
+		width: 174px;
+		top: 137px;
+		z-index: 2;
+		padding: 10px;
+		background-color: #f5f5f5;
+		box-shadow: 0 0 11px rgb(0 0 0 / 50%);
+	}
+}
