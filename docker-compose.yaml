@@ -1,0 +1,9 @@
+version: '3'
+services:
+  school-app:
+    image: upachko/nginx-sftp:u16p7.4
+    container_name: school-app
+    volumes:
+      - ./:/var/www/html
+    ports:
+      - "3010:80"
